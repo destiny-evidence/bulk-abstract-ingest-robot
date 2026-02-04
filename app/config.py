@@ -6,7 +6,8 @@ from enum import StrEnum
 from functools import lru_cache
 from pathlib import Path
 
-from pydantic import UUID4, Field, HttpUrl
+from destiny_sdk import UUID
+from pydantic import Field, HttpUrl
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -58,7 +59,7 @@ class Settings(BaseSettings):
     robot_secret: str = Field(
         description="Secret needed for communicating with destiny repo.",
     )
-    robot_id: UUID4 = Field(
+    robot_id: UUID = Field(
         description="Client id needed for communicating with destiny repository.",
     )
 
