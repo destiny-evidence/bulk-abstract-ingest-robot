@@ -2,12 +2,15 @@
 
 import asyncio
 from enum import Enum
-from typing import Annotated
+from typing import TYPE_CHECKING, Annotated
 
 import typer
 
 from .enhance import EnhancementRunner
 from .match import MatchRunner
+
+if TYPE_CHECKING:
+    from .util import Runner
 
 
 class RunnerTask(str, Enum):  # noqa: UP042
@@ -23,15 +26,16 @@ def main(
     debug_database: Annotated[bool, typer.Option(help="Verbose database logs from sqlalchemy")] = False,
 ) -> None:
     """Start runner for selected `task`."""
+    SelectedRunner: type[Runner]  # noqa: N806
     if task == RunnerTask.enhance:
-        Runner = EnhancementRunner  # noqa: N806
+        SelectedRunner = EnhancementRunner  # noqa: N806
     elif task == RunnerTask.match:
-        Runner = MatchRunner  # noqa: N806
+        SelectedRunner = MatchRunner  # noqa: N806
     else:
         raise ValueError(f"Unknown runner type: {task}")
 
     async def _main() -> None:
-        runner = Runner(name=task.value, loglevel=loglevel, db_debug=debug_database)
+        runner = SelectedRunner(name=task.value, loglevel=loglevel, db_debug=debug_database)
         await runner.start()
 
     asyncio.run(_main())

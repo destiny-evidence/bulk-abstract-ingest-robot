@@ -36,8 +36,14 @@ build-backend = "hatchling.build"
 requires = ["hatchling"]
 
 [tool.mypy]
+strict = true
 explicit_package_bases = true
-plugins = ["pydantic.mypy"]
+plugins = ["pydantic.mypy", "sqlalchemy.ext.mypy.plugin"]
+files = ['app']
+exclude = []
+
+# for strict mypy: (this is the tricky one :-))
+disallow_untyped_defs = true
 
 [tool.pytest.ini_options]
 addopts = ["--color=yes", "--import-mode=importlib", "--verbose"]

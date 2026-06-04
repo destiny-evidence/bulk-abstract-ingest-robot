@@ -38,6 +38,10 @@ class MatchRunner(Runner):
         # Get eligible entries from meta-cache
         cache_entries = await self.store.get_next_request_batch()
 
+        if len(cache_entries) == 0:
+            self.loop_logger.info("No unprocessed cache entries found.")
+            await self.stop()
+
         # Query repository for meta-cache entries
         matched_references = await self.repository.query_repository(cache_entries=cache_entries)
 
@@ -45,14 +49,20 @@ class MatchRunner(Runner):
         await self.store.log_request(cache_entries=cache_entries)
 
         # Filter results
-        matched_references = [
+        filtered_references = [
             (cache_entry, reference) for cache_entry, reference in matched_references if self.should_enhance(cache_entry=cache_entry, reference=reference)
         ]
 
         # Remember DESTinY IDs
-        await self.store.write_matches(matched_references)
+        await self.store.write_matches(filtered_references)
 
         # Request to enhance references
         self.repository.request_to_enhance(
-            destiny_ids=[reference.destiny_id for _cache_entry, reference in matched_references if reference.destiny_id is not None],
+            destiny_ids=[reference.destiny_id for _cache_entry, reference in filtered_references if reference.destiny_id is not None],
+        )
+
+        self.loop_logger.info(
+            f"Tested {len(cache_entries):,} cache entries that "
+            f"matched to {len(matched_references)} references of which"
+            f"for {len(filtered_references)} were eligible."
         )

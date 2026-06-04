@@ -4,7 +4,7 @@ import logging
 import tomllib
 from enum import StrEnum
 from functools import lru_cache
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from pydantic import Field, HttpUrl, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -59,7 +59,7 @@ class Environment(StrEnum):
 def read_toml_value(path_to_toml: str | Path, *path: str) -> str:
     """Read the information from the pyproject.toml."""
     with open(path_to_toml, "rb") as toml_file:  # noqa: PTH123
-        current_node = tomllib.load(toml_file)
+        current_node: Any | None = tomllib.load(toml_file)
         steps = ""
         for step in path:
             if type(current_node) is not dict:
@@ -107,7 +107,7 @@ class Settings(BaseSettings):
     )
 
     base_url: HttpUrl = Field(
-        default="https://api.staging.evidence-repository.org",
+        default=HttpUrl("https://api.staging.evidence-repository.org"),
         description="DESTinY repository API endpoint",
     )
 
@@ -181,4 +181,4 @@ class Settings(BaseSettings):
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
     """Get a cached settings object."""
-    return Settings()  # type: ignore[call-arg]
+    return Settings()
