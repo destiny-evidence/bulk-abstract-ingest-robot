@@ -45,9 +45,6 @@ class MatchRunner(Runner):
         # Query repository for meta-cache entries
         matched_references = await self.repository.query_repository(cache_entries=cache_entries)
 
-        # Remember we queried those
-        await self.store.log_request(cache_entries=cache_entries)
-
         # Filter results
         filtered_references = [
             (cache_entry, reference) for cache_entry, reference in matched_references if self.should_enhance(cache_entry=cache_entry, reference=reference)
@@ -60,6 +57,9 @@ class MatchRunner(Runner):
         self.repository.request_to_enhance(
             destiny_ids=[reference.destiny_id for _cache_entry, reference in filtered_references if reference.destiny_id is not None],
         )
+
+        # Remember we queried those
+        await self.store.log_request(cache_entries=cache_entries)
 
         self.loop_logger.info(
             f"Tested {len(cache_entries):,} cache entries that "
