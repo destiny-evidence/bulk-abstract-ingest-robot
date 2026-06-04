@@ -90,7 +90,7 @@ class Repository:
 
     def request_to_enhance(self, destiny_ids: list[uuid.UUID]) -> None:
         """Ask repository if we can provide enhancements for these IDs."""
-        response = self.robot_client.session.post(
+        response = self.repo_client.get_client().post(
             "/enhancement-requests/",
             json=EnhancementRequestIn(
                 robot_id=self.settings.robot_id,
