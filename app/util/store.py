@@ -41,8 +41,8 @@ class AbstractStore:
                 "       publication_year "
                 "FROM request "
                 "WHERE length(coalesce(abstract, '')) > :min_length AND "
-                "      requested = FALSE AND "
-                "      submitted = FALSE AND "
+                "      requested IS NOT TRUE AND "
+                "      submitted IS NOT TRUE AND "
                 "      destiny_id IS NULL "
                 "LIMIT :batch_size;",
             )
