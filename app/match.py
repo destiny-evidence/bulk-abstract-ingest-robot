@@ -41,6 +41,7 @@ class MatchRunner(Runner):
         if len(cache_entries) == 0:
             self.loop_logger.info("No unprocessed cache entries found.")
             await self.stop()
+            return
 
         # Query repository for meta-cache entries
         matched_references = await self.repository.query_repository(cache_entries=cache_entries)
