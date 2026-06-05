@@ -42,8 +42,7 @@ class AbstractStore:
                 "FROM request "
                 "WHERE length(coalesce(abstract, '')) > :min_length AND "
                 "      requested IS NOT TRUE AND "
-                "      submitted IS NOT TRUE AND "
-                "      destiny_id IS NULL "
+                "      submitted IS NOT TRUE "
                 "LIMIT :batch_size;",
             )
             batch = await session.execute(
