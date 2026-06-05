@@ -11,7 +11,7 @@ authors = [
 ]
 
 dependencies = [
-    "destiny-sdk==0.12.0",
+    "destiny-sdk==0.12.4",
     "httpx>=0.28.0,<0.29.0",
     "opentelemetry-distro>=0.57b0",
     "opentelemetry-exporter-otlp>=1.42.1",
