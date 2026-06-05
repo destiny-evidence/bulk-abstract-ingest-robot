@@ -25,4 +25,4 @@ class EnhancementRunner(Runner):
         await self.repository.submit_enhancements(batch_info=batch_info, cache_entries=cache_entries)
 
         # Remember we submitted these
-        await self.store.log_submission(destiny_ids={reference.id for reference in references})
+        await self.store.log_submission(cache_entries=cache_entries)

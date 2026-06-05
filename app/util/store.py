@@ -76,7 +76,12 @@ class AbstractStore:
             return records
 
     async def log_request(self, cache_entries: list[Record]) -> None:
-        """Log lookup in repository."""
+        """
+        Log lookup in repository.
+
+        This is not logging based on the DESTinY ID because we might have multiple matches in our database with different versions of the abstract.
+        It's up to the enhancement routine to decide which ones to use.
+        """
         async with self.db.session() as session:
             stmt = sa.text("UPDATE request SET requested = TRUE WHERE record_id = ANY(:record_ids);")
             await session.execute(
@@ -85,11 +90,11 @@ class AbstractStore:
             )
             await session.commit()
 
-    async def log_submission(self, destiny_ids: set[uuid.UUID]) -> None:
+    async def log_submission(self, cache_entries: list[Record]) -> None:
         """Log submission to repository."""
         async with self.db.session() as session:
-            stmt = sa.text("UPDATE request SET submitted = TRUE WHERE destiny_id = ANY(:destiny_ids);")
-            await session.execute(stmt, {"destiny_ids": destiny_ids})
+            stmt = sa.text("UPDATE request SET submitted = TRUE WHERE record_id = ANY(:record_ids);")
+            await session.execute(stmt, {"record_ids": [entry.record_id for entry in cache_entries if entry.record_id is not None]})
             await session.commit()
 
     async def write_matches(self, matched_references: list[tuple[Record, Record]]) -> None:
