@@ -116,9 +116,13 @@ class Settings(BaseSettings):
         description="The environment the toy robot is deployed in.",
     )
 
-    poll_interval_seconds: int = Field(
+    match_interval_seconds: int = Field(
         default=30,
-        description=("How often to poll for new robot enhancement batches (seconds)"),
+        description=("How long to sleep between match requests (seconds)"),
+    )
+    enhance_interval_seconds: int = Field(
+        default=30,
+        description=("How long to sleep between enhancement batches (seconds)"),
     )
     request_batch_size: int = Field(
         default=10,

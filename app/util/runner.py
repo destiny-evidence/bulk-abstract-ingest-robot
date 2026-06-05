@@ -18,13 +18,14 @@ if TYPE_CHECKING:
 class Runner(ABC):
     """Abstract runner class with main loop."""
 
-    def __init__(self, name: str, db_debug: bool = False, loglevel: str | int = "INFO") -> None:
+    def __init__(self, name: str, db_debug: bool = False, loglevel: str | int = "INFO", loop_interval_seconds: int = 0) -> None:
         """Initialise runner."""
         self.settings = get_settings()
 
         logger = get_logger("abstracts-robot", init_logging=True, base_level=loglevel)
         self.logger = logger.getChild(name)
         self.loop_logger = self.logger.getChild("loop")
+        self.loop_interval_seconds = loop_interval_seconds
 
         self.repository = Repository(settings=self.settings, logger=logger.getChild("repository"))
         self.store = AbstractStore(
@@ -44,8 +45,9 @@ class Runner(ABC):
         loop_logger = self.logger.getChild("loop")
         while True:
             try:
-                # Sleep for graceful API use
-                await asyncio.sleep(self.settings.poll_interval_seconds)
+                if self.loop_interval_seconds > 0:
+                    # Sleep for graceful API use
+                    await asyncio.sleep(self.loop_interval_seconds)
 
                 # Perform unit of work
                 await self._loop_task()
@@ -61,7 +63,7 @@ class Runner(ABC):
     async def start(self) -> None:
         """Robot's core working method."""
         self.logger.info(
-            f"Initialising main loop for {self.settings.robot_name} with a {self.settings.poll_interval_seconds}s polling interval "
+            f"Initialising main loop for {self.settings.robot_name} with a {self.loop_interval_seconds}s polling interval "
             f"and batch sizes {self.settings.request_batch_size:,} (poll) and {self.settings.fulfil_batch_size} (fulfil)",
         )
 
