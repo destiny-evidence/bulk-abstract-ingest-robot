@@ -13,6 +13,19 @@ if TYPE_CHECKING:
 
     from .config import Settings
 
+publication_year = r"""
+coalesce(
+    (raw -> 'meta' -> 'openalex' ->> 'publication_year')::INT,
+    (raw -> 'meta' -> 'openalex-api' ->> 'publication_year')::INT,
+    (raw ->> 'publication_year')::INT,
+    (raw ->> 'year')::INT,
+    (raw -> 'static_data' -> 'summary' -> 'pub_info' ->> 'pubyear')::INT,
+    SUBSTRING(raw ->> 'prism:coverDate' FROM '\d{4}')::INT,
+    SUBSTRING(raw ->> 'prism:coverDisplayDate' FROM '\d{4}')::INT,
+    (raw -> 'PubmedData' -> 0 -> 'History' -> 0 -> 'PubMedPubDate' -> 0 -> 'Year' -> 0 ->> '_text')::INT,
+    (raw -> 'MedlineCitation' -> 0 -> 'Article' -> 0 -> 'Journal' -> 0 -> 'JournalIssue' -> 0 -> 'PubDate' -> 0 -> 'Year' -> 0 ->> '_text')::INT
+) AS publication_year
+"""
 
 class AbstractStore:
     """Utility class to interact with metadata cache database."""
@@ -38,7 +51,7 @@ class AbstractStore:
                 "       doi,"
                 "       pubmed_id,"
                 "       abstract,"
-                "       publication_year "
+                f"      {publication_year} "
                 "FROM request "
                 "WHERE length(coalesce(abstract, '')) > :min_length AND "
                 "      requested IS NOT TRUE AND "
@@ -65,7 +78,7 @@ class AbstractStore:
                 "       destiny_id,"
                 "       pubmed_id,"
                 "       abstract,"
-                "       publication_year "
+                f"      {publication_year} "
                 "FROM request "
                 "WHERE destiny_id = ANY(:destiny_ids);",
             )
