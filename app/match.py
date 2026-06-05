@@ -55,10 +55,10 @@ class MatchRunner(Runner):
         await self.store.write_matches(filtered_references)
 
         # Request to enhance references
-      if (destiny_ids := [reference.destiny_id for _cache_entry, reference in filtered_references if reference.destiny_id is not None]):
-        self.repository.request_to_enhance(
-            destiny_ids=destiny_ids,
-        )
+        if destiny_ids := [reference.destiny_id for _cache_entry, reference in filtered_references if reference.destiny_id is not None]:
+            self.repository.request_to_enhance(
+                destiny_ids=destiny_ids,
+            )
 
         # Remember we queried those
         await self.store.log_request(cache_entries=cache_entries)
