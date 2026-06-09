@@ -13,6 +13,19 @@ if TYPE_CHECKING:
 
     from .config import Settings
 
+publication_year = r"""
+coalesce(
+    (raw -> 'meta' -> 'openalex' ->> 'publication_year')::INT,
+    (raw -> 'meta' -> 'openalex-api' ->> 'publication_year')::INT,
+    (raw ->> 'publication_year')::INT,
+    (raw ->> 'year')::INT,
+    (raw -> 'static_data' -> 'summary' -> 'pub_info' ->> 'pubyear')::INT,
+    SUBSTRING(raw ->> 'prism:coverDate' FROM '\d{4}')::INT,
+    SUBSTRING(raw ->> 'prism:coverDisplayDate' FROM '\d{4}')::INT,
+    (raw -> 'PubmedData' -> 0 -> 'History' -> 0 -> 'PubMedPubDate' -> 0 -> 'Year' -> 0 ->> '_text')::INT,
+    (raw -> 'MedlineCitation' -> 0 -> 'Article' -> 0 -> 'Journal' -> 0 -> 'JournalIssue' -> 0 -> 'PubDate' -> 0 -> 'Year' -> 0 ->> '_text')::INT
+) AS publication_year
+"""
 
 class AbstractStore:
     """Utility class to interact with metadata cache database."""
@@ -38,12 +51,11 @@ class AbstractStore:
                 "       doi,"
                 "       pubmed_id,"
                 "       abstract,"
-                "       publication_year "
+                f"      {publication_year} "
                 "FROM request "
                 "WHERE length(coalesce(abstract, '')) > :min_length AND "
-                "      requested = FALSE AND "
-                "      submitted = FALSE AND "
-                "      destiny_id IS NULL "
+                "      requested IS NOT TRUE AND "
+                "      submitted IS NOT TRUE "
                 "LIMIT :batch_size;",
             )
             batch = await session.execute(
@@ -66,7 +78,7 @@ class AbstractStore:
                 "       destiny_id,"
                 "       pubmed_id,"
                 "       abstract,"
-                "       publication_year "
+                f"      {publication_year} "
                 "FROM request "
                 "WHERE destiny_id = ANY(:destiny_ids);",
             )
@@ -77,7 +89,12 @@ class AbstractStore:
             return records
 
     async def log_request(self, cache_entries: list[Record]) -> None:
-        """Log lookup in repository."""
+        """
+        Log lookup in repository.
+
+        This is not logging based on the DESTinY ID because we might have multiple matches in our database with different versions of the abstract.
+        It's up to the enhancement routine to decide which ones to use.
+        """
         async with self.db.session() as session:
             stmt = sa.text("UPDATE request SET requested = TRUE WHERE record_id = ANY(:record_ids);")
             await session.execute(
@@ -86,11 +103,11 @@ class AbstractStore:
             )
             await session.commit()
 
-    async def log_submission(self, destiny_ids: set[uuid.UUID]) -> None:
+    async def log_submission(self, cache_entries: list[Record]) -> None:
         """Log submission to repository."""
         async with self.db.session() as session:
-            stmt = sa.text("UPDATE request SET submitted = TRUE WHERE destiny_id = ANY(:destiny_ids);")
-            await session.execute(stmt, {"destiny_ids": destiny_ids})
+            stmt = sa.text("UPDATE request SET submitted = TRUE WHERE record_id = ANY(:record_ids);")
+            await session.execute(stmt, {"record_ids": [entry.record_id for entry in cache_entries if entry.record_id is not None]})
             await session.commit()
 
     async def write_matches(self, matched_references: list[tuple[Record, Record]]) -> None:

@@ -82,7 +82,7 @@ class Repository:
         for reference in references:
             flat_reference = flatten_reference(reference)
             if flat_reference.openalex_id is not None and flat_reference.openalex_id in entries:
-                matched_references.append((entries[flat_reference.openalex_id], reference))
+                matched_references.append((entries[flat_reference.openalex_id], flat_reference))
 
         self.logger.debug(f"Queried for {len(entries):,} OpenAlex IDs, received {len(references):,} references of which {len(matched_references):,} matched")
 
@@ -90,7 +90,7 @@ class Repository:
 
     def request_to_enhance(self, destiny_ids: list[uuid.UUID]) -> None:
         """Ask repository if we can provide enhancements for these IDs."""
-        response = self.robot_client.session.post(
+        response = self.repo_client.get_client().post(
             "/enhancement-requests/",
             json=EnhancementRequestIn(
                 robot_id=self.settings.robot_id,

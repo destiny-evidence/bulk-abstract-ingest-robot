@@ -41,18 +41,22 @@ def flatten_reference(reference: Reference) -> Record:
     record = Record(destiny_id=reference.id)
 
     for identifier in reference.identifiers or []:
-        if identifier.identifier is None:
+        if identifier.identifier is None or type(identifier.identifier) is not str:
             continue
 
         if identifier.identifier_type == ExternalIdentifierType.OPEN_ALEX and record.openalex_id is None:
             record.openalex_id = identifier.identifier
         elif identifier.identifier_type == ExternalIdentifierType.DOI and record.doi is None:
             record.doi = identifier.identifier
-        elif identifier.identifier_type == ExternalIdentifierType.PM_ID and record.pubmed_id is None:
+        elif identifier.identifier_type == ExternalIdentifierType.PM_ID and record.pubmed_id is None:  # type: ignore[comparison-overlap]
             record.pubmed_id = identifier.identifier
 
     for enhancement in reference.enhancements or []:
-        if enhancement.content.enhancement_type == EnhancementType.BIBLIOGRAPHIC and record.publication_year is None:
+        if (
+            enhancement.content.enhancement_type == EnhancementType.BIBLIOGRAPHIC
+            and record.publication_year is None
+            and enhancement.content.publication_year is not None
+        ):
             if record.publication_years is None:
                 record.publication_years = []
             record.publication_years.append(enhancement.content.publication_year)

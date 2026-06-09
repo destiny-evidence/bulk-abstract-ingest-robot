@@ -10,10 +10,10 @@ This robot iterates PIK's meta cache (`requests` relation) and submits abstract 
 3. Add columns
 
 ```postgresql
-ALTER TABLE requests ADD COLUMN destiny_id uuid;
-ALTER TABLE requests ADD COLUMN requested bool;
-ALTER TABLE requests ADD COLUMN submittable integer;
-ALTER TABLE requests ADD COLUMN submitted bool;
+ALTER TABLE request ADD COLUMN destiny_id uuid;
+ALTER TABLE request ADD COLUMN requested bool;
+ALTER TABLE request ADD COLUMN submittable integer;
+ALTER TABLE request ADD COLUMN submitted bool;
 ```
 
 ### Requirements
