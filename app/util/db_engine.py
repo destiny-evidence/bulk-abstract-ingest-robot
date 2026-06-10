@@ -110,9 +110,9 @@ class DatabaseEngine:
             logger.exception(e)
 
     @asynccontextmanager
-    async def session(self, use_commit: bool = False) -> AsyncIterator[AsyncSession]:
+    async def session(self) -> AsyncIterator[AsyncSession]:
         """Get a managed session."""
-        session: AsyncSession = self._session(use_commit=use_commit)
+        session: AsyncSession = self._session()
 
         if logger.isEnabledFor(logging.DEBUG):
             import inspect  # noqa: PLC0415

@@ -81,6 +81,26 @@ Run the robot:
 uv run python run_robot.py
 ```
 
+Run both tasks in parallel with Docker Compose:
+
+```sh
+docker compose up --build
+```
+
+Services:
+
+- `match`: runs `python run_robot.py match`
+- `enhance`: runs `python run_robot.py enhance`
+
+Useful commands:
+
+```sh
+docker compose logs -f match
+docker compose logs -f enhance
+docker compose down
+```
+
+
 ## Implemented request flow
 
 

@@ -1,0 +1,24 @@
+services:
+  match:
+    build:
+      context: .
+    command: ["uv", "run","python", "run_robot.py", "match"]
+    env_file:
+      - .env
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      - "PIK_DB_HOST=host.docker.internal"
+    restart: unless-stopped
+
+  enhance:
+    build:
+      context: .
+    command: ["uv", "run", "python", "run_robot.py", "enhance"]
+    env_file:
+      - .env
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      - "PIK_DB_HOST=host.docker.internal"
+    restart: unless-stopped
