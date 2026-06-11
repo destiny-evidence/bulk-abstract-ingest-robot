@@ -5,9 +5,9 @@ from typing import TYPE_CHECKING
 from destiny_sdk.enhancements import EnhancementType
 from destiny_sdk.identifiers import ExternalIdentifierType
 from pydantic import BaseModel
+from uuid import UUID
 
 if TYPE_CHECKING:
-    import uuid
 
     from destiny_sdk.references import Reference
 
@@ -15,8 +15,8 @@ if TYPE_CHECKING:
 class Record(BaseModel):
     """Simplified representation of a reference."""
 
-    record_id: uuid.UUID | None = None
-    destiny_id: uuid.UUID | None = None
+    record_id: UUID | None = None
+    destiny_id: UUID | None = None
 
     openalex_id: str | None = None  # Must be W123456789 format
     doi: str | None = None  # Expecting no URL prefixes, starting with 10.*
@@ -34,6 +34,55 @@ class Record(BaseModel):
 
     publication_year: int | None = None
     publication_years: list[int] | None = None
+
+    @staticmethod
+    def from_cache_tuple(db_result: tuple) -> Record:
+        """
+        Create a Record from a cache database result tuple.
+        
+        SQL query looks like:
+        SELECT record_id,
+                openalex_id,
+                doi,
+                pubmed_id,
+                abstract,
+                {publication_year}
+        FROM request
+        """
+        return Record(
+            record_id=db_result[0],
+            openalex_id=db_result[1],
+            doi=db_result[2],
+            pubmed_id=db_result[3],
+            abstract=db_result[4],
+            publication_year=db_result[5],
+        )
+    
+    @staticmethod
+    def from_cache_destiny_tuple(db_result: tuple) -> Record:
+        """
+        Create a Record from a database result tuple
+        where we've added a destiny ID.
+        
+        SQL query looks like:
+        SELECT record_id,
+                doi,
+                openalex_id,
+                destiny_id,
+                pubmed_id,
+                abstract,
+                {publication_year} 
+        FROM request
+        """
+        return Record(
+            record_id=db_result[0],
+            doi=db_result[1],
+            openalex_id=db_result[2],
+            destiny_id=db_result[3],
+            pubmed_id=db_result[4],
+            abstract=db_result[5],
+            publication_year=db_result[6],
+        )
 
 
 def flatten_reference(reference: Reference) -> Record:

@@ -4,14 +4,12 @@ import logging
 import tomllib
 from enum import StrEnum
 from functools import lru_cache
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from pydantic import Field, HttpUrl, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
-
-if TYPE_CHECKING:
-    import uuid
-    from pathlib import Path
+from uuid import UUID
+from pathlib import Path
 
 
 def configure_logging(base_level: int | str = "INFO") -> None:
@@ -90,7 +88,7 @@ class Settings(BaseSettings):
     robot_secret: SecretStr = Field(
         description="Secret needed for communicating with destiny repo.",
     )
-    robot_id: uuid.UUID = Field(
+    robot_id: UUID = Field(
         description="Client id needed for communicating with destiny repository.",
     )
 

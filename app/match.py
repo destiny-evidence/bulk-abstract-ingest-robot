@@ -7,7 +7,7 @@ class MatchRunner(Runner):
     """Runner that keeps matching cache entries to DESTinY IDs and checks plausibility of candidates."""
 
     def should_enhance(self, cache_entry: Record, reference: Record) -> bool:
-        """Submittable iff following rules hold true: (abstract is missing in repository or not matching known abstract) and publication year +/-N."""
+        """Submittable if following rules hold true: (abstract is missing in repository or not matching known abstract) and publication year +/-N."""
         if cache_entry.abstract is None or len(cache_entry.abstract) < self.settings.min_abstract_length:
             # Empty and short abstracts are not good //  We should not end up here, this check is just in case...
             return False
@@ -65,6 +65,6 @@ class MatchRunner(Runner):
 
         self.loop_logger.info(
             f"Tested {len(cache_entries):,} cache entries that "
-            f"matched to {len(matched_references)} references of which"
+            f"matched to {len(matched_references)} references of which "
             f"for {len(filtered_references)} were eligible."
         )

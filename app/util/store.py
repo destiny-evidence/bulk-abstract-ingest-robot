@@ -3,13 +3,12 @@
 from typing import TYPE_CHECKING
 
 import sqlalchemy as sa
-
+from uuid import UUID
 from .db_engine import get_engine
 from .types import Record
 
 if TYPE_CHECKING:
     import logging
-    import uuid
 
     from .config import Settings
 
@@ -65,9 +64,10 @@ class AbstractStore:
                     "batch_size": self.settings.request_batch_size,
                 },
             )
-            return [Record.model_validate(row) for row in batch]
 
-    async def get_entries(self, destiny_ids: set[uuid.UUID], ensure_overlap: bool = False) -> list[Record]:
+            return [Record.from_cache_tuple(row) for row in batch]
+
+    async def get_entries(self, destiny_ids: set[UUID], ensure_overlap: bool = False) -> list[Record]:
         """Get entries for DESTinY IDs and optionally check the sets overlap."""
         self.logger.debug(f"Querying cache DB for {len(destiny_ids):,} DESTinY repository IDs...")
         async with self.db.session() as session:
@@ -83,7 +83,7 @@ class AbstractStore:
                 "WHERE destiny_id = ANY(:destiny_ids);",
             )
             batch = await session.execute(stmt, {"destiny_ids": list(destiny_ids)})
-            records = [Record.model_validate(row) for row in batch]
+            records = [Record.from_cache_destiny_tuple(row) for row in batch]
             if ensure_overlap and {record.destiny_id for record in records} != destiny_ids:
                 raise RuntimeError("Did not find submittable record for all requested IDs!")
             return records

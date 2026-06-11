@@ -21,12 +21,11 @@ from destiny_sdk.robots import (
     RobotEnhancementBatchResult,
 )
 from destiny_sdk.visibility import Visibility
-
+from uuid import UUID
 from .types import Record, flatten_reference
 
 if TYPE_CHECKING:
     import logging
-    import uuid
 
     from .config import Settings
 
@@ -88,7 +87,7 @@ class Repository:
 
         return matched_references
 
-    def request_to_enhance(self, destiny_ids: list[uuid.UUID]) -> None:
+    def request_to_enhance(self, destiny_ids: list[UUID]) -> None:
         """Ask repository if we can provide enhancements for these IDs."""
         response = self.repo_client.get_client().post(
             "/enhancement-requests/",
@@ -161,7 +160,7 @@ class Repository:
         )
         response.raise_for_status()
 
-    def _finalise_enhancement_batch(self, batch_id: uuid.UUID) -> None:
+    def _finalise_enhancement_batch(self, batch_id: UUID) -> None:
         self.robot_client.send_robot_enhancement_batch_result(
             RobotEnhancementBatchResult(
                 request_id=batch_id,
