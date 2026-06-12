@@ -14,6 +14,10 @@ from pathlib import Path
 
 def configure_logging(base_level: int | str = "INFO") -> None:
     """Configure logging for the application."""
+
+    httpx_level = logging.DEBUG if (base_level == logging.DEBUG or base_level == "DEBUG") else logging.WARNING
+    logging.getLogger("httpx").setLevel(httpx_level)
+
     logging.basicConfig(
         level=base_level,
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
@@ -137,9 +141,9 @@ class Settings(BaseSettings):
         description=("Maximum number of identifiers to include in a single repository lookup request"),
     )
     repository_lookup_concurrency: int = Field(
-        default=4,
+        default=1,
         ge=1,
-        description=("Maximum number of concurrent repository lookup requests"),
+        description=("Maximum number of concurrent repository lookup requests."),
     )
 
     keycloak_id: str | None = Field(default=None, description="keycloak client id")
