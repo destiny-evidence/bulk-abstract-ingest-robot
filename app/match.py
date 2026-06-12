@@ -63,8 +63,10 @@ class MatchRunner(Runner):
         # Remember we queried those
         await self.store.log_request(cache_entries=cache_entries)
 
+        self.total_entries_processed += len(cache_entries)
         self.loop_logger.info(
+            f"[Total: {self.total_entries_processed} entries] "
             f"Tested {len(cache_entries):,} cache entries that "
             f"matched to {len(matched_references)} references of which "
-            f"for {len(filtered_references)} were eligible."
+            f"{len(filtered_references)} were eligible."
         )
