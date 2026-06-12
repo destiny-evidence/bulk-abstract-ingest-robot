@@ -130,6 +130,17 @@ class Settings(BaseSettings):
         default=10,
         description=("The number of references to include per enhancement batch"),
     )
+    repository_lookup_batch_size: int = Field(
+        default=100,
+        ge=1,
+        le=100,
+        description=("Maximum number of identifiers to include in a single repository lookup request"),
+    )
+    repository_lookup_concurrency: int = Field(
+        default=4,
+        ge=1,
+        description=("Maximum number of concurrent repository lookup requests"),
+    )
 
     keycloak_id: str | None = Field(default=None, description="keycloak client id")
     keycloak_secret: SecretStr | None = Field(

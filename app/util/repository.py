@@ -1,5 +1,6 @@
 """Utility class for interacting with the repository."""
 
+import asyncio
 from typing import TYPE_CHECKING
 
 import httpx
@@ -75,7 +76,18 @@ class Repository:
             )
             for openalex_id in entries
         ]
-        references = self.repo_client.lookup(query, timeout=60)
+
+        batch_size = self.settings.repository_lookup_batch_size
+        query_batches = [query[i : i + batch_size] for i in range(0, len(query), batch_size)]
+
+        semaphore = asyncio.Semaphore(self.settings.repository_lookup_concurrency)
+
+        async def lookup_batch(batch: list[str | IdentifierLookup]) -> list[Reference]:
+            async with semaphore:
+                return await asyncio.to_thread(self.repo_client.lookup, batch, timeout=60)
+
+        batch_results = await asyncio.gather(*(lookup_batch(batch) for batch in query_batches))
+        references = [reference for batch in batch_results for reference in batch]
 
         matched_references = []
         for reference in references:
@@ -83,7 +95,11 @@ class Repository:
             if flat_reference.openalex_id is not None and flat_reference.openalex_id in entries:
                 matched_references.append((entries[flat_reference.openalex_id], flat_reference))
 
-        self.logger.debug(f"Queried for {len(entries):,} OpenAlex IDs, received {len(references):,} references of which {len(matched_references):,} matched")
+        self.logger.debug(
+            f"Queried for {len(entries):,} OpenAlex IDs in {len(query_batches):,} lookup requests "
+            f"(batch size <= {batch_size}, concurrency {self.settings.repository_lookup_concurrency}); "
+            f"received {len(references):,} references of which {len(matched_references):,} matched"
+        )
 
         return matched_references
 
