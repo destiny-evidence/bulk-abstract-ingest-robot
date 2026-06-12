@@ -26,6 +26,7 @@ class Runner(ABC):
         self.logger = logger.getChild(name)
         self.loop_logger = self.logger.getChild("loop")
         self.loop_interval_seconds = loop_interval_seconds
+        self.total_entries_processed = 0
 
         self.repository = Repository(settings=self.settings, logger=logger.getChild("repository"))
         self.store = AbstractStore(
