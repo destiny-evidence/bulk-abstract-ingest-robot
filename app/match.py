@@ -44,15 +44,14 @@ class MatchRunner(Runner):
             return
 
         # Query repository for meta-cache entries
-        matched_references = await self.repository.query_repository(cache_entries=cache_entries)
+        matched_destiny_references = await self.repository.query_repository(cache_entries=cache_entries)
+
+        matched_cache_entries = [cache_entry for cache_entry, _reference in matched_destiny_references]
 
         # Filter results
         filtered_references = [
-            (cache_entry, reference) for cache_entry, reference in matched_references if self.should_enhance(cache_entry=cache_entry, reference=reference)
+            (cache_entry, reference) for cache_entry, reference in matched_destiny_references if self.should_enhance(cache_entry=cache_entry, reference=reference)
         ]
-
-        # Remember DESTinY IDs
-        await self.store.write_matches(filtered_references)
 
         # Request to enhance references
         if destiny_ids := [reference.destiny_id for _cache_entry, reference in filtered_references if reference.destiny_id is not None]:
@@ -60,13 +59,19 @@ class MatchRunner(Runner):
                 destiny_ids=destiny_ids,
             )
 
-        # Remember we queried those
-        await self.store.log_request(cache_entries=cache_entries)
+        requested_cache_entries = [submittable_cache_entry for submittable_cache_entry, reference in filtered_references if reference.destiny_id is not None]
+
+        await self.store.persist_match_results(
+            cache_entries=cache_entries,
+            matched_cache_entries=matched_cache_entries,
+            filtered_references=filtered_references,
+            requested_cache_entries=requested_cache_entries,
+        )
 
         self.total_entries_processed += len(cache_entries)
         self.loop_logger.info(
             f"[Total: {self.total_entries_processed} entries] "
             f"Tested {len(cache_entries):,} cache entries that "
-            f"matched to {len(matched_references)} references of which "
+            f"matched to {len(matched_destiny_references)} references of which "
             f"{len(filtered_references)} were eligible."
         )

@@ -11,9 +11,11 @@ This robot iterates PIK's meta cache (`requests` relation) and submits abstract 
 
 ```postgresql
 ALTER TABLE request ADD COLUMN destiny_id uuid;
-ALTER TABLE request ADD COLUMN requested bool;
-ALTER TABLE request ADD COLUMN submittable integer;
-ALTER TABLE request ADD COLUMN submitted bool;
+ALTER TABLE request ADD COLUMN processed bool DEFAULT FALSE;
+ALTER TABLE request ADD COLUMN exists_in_destiny bool;
+ALTER TABLE request ADD COLUMN abstract_enhancement_required bool DEFAULT FALSE;
+ALTER TABLE request ADD COLUMN requested bool DEFAULT FALSE;
+ALTER TABLE request ADD COLUMN submitted bool DEFAULT FALSE;
 ```
 
 ### Requirements
