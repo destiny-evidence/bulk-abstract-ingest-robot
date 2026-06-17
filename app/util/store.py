@@ -113,7 +113,7 @@ class AbstractStore:
         Updates the following database columns:
 
             - evaluated: Marks records that have been evaluated against the destiny repository in this batch.
-            - found_in_destiny: Marks entries that were matched to a DESTinY ID in the repository.
+            - found_destiny_reference: Marks entries that were matched to a DESTinY ID in the repository.
             - abstract_enhancement_required: Marks entries that require an abstract enhancement to be submitted.
             - destiny_id: Updates the DESTinY ID for matched entries.
             - requested: Marks entries for which enhancement requests were successfully submitted to the DESTINY repository.
@@ -127,7 +127,7 @@ class AbstractStore:
         """
 
         evaluated_ids = sorted({entry.record_id for entry in cache_entries if entry.record_id is not None})
-        found_in_destiny_ids = sorted({entry.record_id for entry in matched_cache_entries if entry.record_id is not None})
+        found_destiny_reference_ids = sorted({entry.record_id for entry in matched_cache_entries if entry.record_id is not None})
         requested_ids = sorted({entry.record_id for entry in requested_cache_entries if entry.record_id is not None})
         abstract_enhancement_required_ids = sorted({cache_entry.record_id for cache_entry, _ in filtered_references if cache_entry.record_id is not None})
         matched_values = [
@@ -142,7 +142,7 @@ class AbstractStore:
 
         all_touched_ids = sorted(
             set(evaluated_ids)
-            | set(found_in_destiny_ids)
+            | set(found_destiny_reference_ids)
             | set(requested_ids)
             | set(abstract_enhancement_required_ids)
             | {row["record_id"] for row in matched_values}
@@ -168,10 +168,10 @@ class AbstractStore:
                     {"record_ids": evaluated_ids},
                 )
 
-            if found_in_destiny_ids:
+            if found_destiny_reference_ids:
                 await session.execute(
-                    sa.text("UPDATE request SET found_in_destiny = TRUE WHERE record_id = ANY(:record_ids);"),
-                    {"record_ids": found_in_destiny_ids},
+                    sa.text("UPDATE request SET found_destiny_reference = TRUE WHERE record_id = ANY(:record_ids);"),
+                    {"record_ids": found_destiny_reference_ids},
                 )
 
             if abstract_enhancement_required_ids:
