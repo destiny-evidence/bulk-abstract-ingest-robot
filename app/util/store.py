@@ -80,7 +80,7 @@ class AbstractStore:
                 f"      {publication_year} "
                 "FROM request "
                 "WHERE destiny_id = ANY(:destiny_ids) AND" \
-                "      submitted IS NOT TRUE" \
+                "      enhancement_submitted IS NOT TRUE" \
             )
             batch = await session.execute(stmt, {"destiny_ids": list(destiny_ids)})
             records = [Record.from_cache_destiny_tuple(row) for row in batch]
@@ -91,7 +91,7 @@ class AbstractStore:
     async def log_submission(self, cache_entries: list[Record]) -> None:
         """Log submission to repository."""
         async with self.db.session() as session:
-            stmt = sa.text("UPDATE request SET submitted = TRUE WHERE record_id = ANY(:record_ids);")
+            stmt = sa.text("UPDATE request SET enhancement_submitted = TRUE WHERE record_id = ANY(:record_ids);")
             await session.execute(stmt, {"record_ids": [entry.record_id for entry in cache_entries if entry.record_id is not None]})
             await session.commit()
 
@@ -116,14 +116,14 @@ class AbstractStore:
             - found_destiny_reference: Marks entries that were matched to a DESTinY ID in the repository.
             - abstract_enhancement_required: Marks entries that require an abstract enhancement to be submitted.
             - destiny_id: Updates the DESTinY ID for matched entries.
-            - requested: Marks entries for which enhancement requests were successfully submitted to the DESTINY repository.
+            - enhancement_requested: Marks entries for which enhancement requests were successfully sent to the DESTINY repository.
 
         Args:
             cache_entries (list[Record]): All cache items considered as part of this batch.
             matched_cache_entries (list[Record]): Cache items that were matched to a DESTinY ID in the repository.
             filtered_references (list[tuple[Record, Record]]): Cache items that passed the enhancement criteria.
             requested_cache_entries (list[Record]): Cache items for which enhancement requests were
-                submitted to the DESTINY repository.
+                sent to the DESTINY repository.
         """
 
         evaluated_ids = sorted({entry.record_id for entry in cache_entries if entry.record_id is not None})
@@ -188,7 +188,7 @@ class AbstractStore:
 
             if requested_ids:
                 await session.execute(
-                    sa.text("UPDATE request SET requested = TRUE WHERE record_id = ANY(:record_ids);"),
+                    sa.text("UPDATE request SET enhancement_requested = TRUE WHERE record_id = ANY(:record_ids);"),
                     {"record_ids": requested_ids},
                 )
     

@@ -14,8 +14,8 @@ ALTER TABLE request ADD COLUMN destiny_id uuid;
 ALTER TABLE request ADD COLUMN evaluated bool DEFAULT FALSE;
 ALTER TABLE request ADD COLUMN found_destiny_reference bool DEFAULT FALSE;
 ALTER TABLE request ADD COLUMN abstract_enhancement_required bool DEFAULT FALSE;
-ALTER TABLE request ADD COLUMN requested bool DEFAULT FALSE;
-ALTER TABLE request ADD COLUMN submitted bool DEFAULT FALSE;
+ALTER TABLE request ADD COLUMN enhancement_requested bool DEFAULT FALSE;
+ALTER TABLE request ADD COLUMN enhancement_submitted bool DEFAULT FALSE;
 ```
 
 ### Requirements
