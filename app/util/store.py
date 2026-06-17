@@ -126,10 +126,10 @@ class AbstractStore:
                 submitted to the DESTINY repository.
         """
 
-        processed_ids = [entry.record_id for entry in cache_entries if entry.record_id is not None]
-        exists_ids = [entry.record_id for entry in matched_cache_entries if entry.record_id is not None]
-        requested_ids = [entry.record_id for entry in requested_cache_entries if entry.record_id is not None]
-        abstract_enhancement_required_ids = [cache_entry.record_id for cache_entry, _ in filtered_references if cache_entry.record_id is not None]
+        processed_ids = sorted({entry.record_id for entry in cache_entries if entry.record_id is not None})
+        exists_ids = sorted({entry.record_id for entry in matched_cache_entries if entry.record_id is not None})
+        requested_ids = sorted({entry.record_id for entry in requested_cache_entries if entry.record_id is not None})
+        abstract_enhancement_required_ids = sorted({cache_entry.record_id for cache_entry, _ in filtered_references if cache_entry.record_id is not None})
         matched_values = [
             {
                 "record_id": cache_entry.record_id,
@@ -138,8 +138,30 @@ class AbstractStore:
             for cache_entry, reference in filtered_references
             if cache_entry.record_id is not None and reference.destiny_id is not None
         ]
+        matched_values.sort(key=lambda row: row["record_id"])
+
+        all_touched_ids = sorted(
+            set(processed_ids)
+            | set(exists_ids)
+            | set(requested_ids)
+            | set(abstract_enhancement_required_ids)
+            | {row["record_id"] for row in matched_values}
+        )
 
         async with self.db.session() as session:
+            if all_touched_ids:
+                self.logger.debug("Acquiring row locks in deterministic order to avoid deadlocks between workers")
+                await session.execute(
+                    sa.text(
+                        "SELECT record_id "
+                        "FROM request "
+                        "WHERE record_id = ANY(:record_ids) "
+                        "ORDER BY record_id "
+                        "FOR UPDATE;"
+                    ),
+                    {"record_ids": all_touched_ids},
+                )
+
             if processed_ids:
                 await session.execute(
                     sa.text("UPDATE request SET processed = TRUE WHERE record_id = ANY(:record_ids);"),
