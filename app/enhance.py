@@ -26,3 +26,9 @@ class EnhancementRunner(Runner):
 
         # Remember we submitted these
         await self.store.log_submission(cache_entries=cache_entries)
+
+        self.total_entries_processed += len(cache_entries)
+        self.loop_logger.info(
+            f"[Total: {self.total_entries_processed:,} entries] "
+            f"Submitted {len(cache_entries):,} enhancements."
+        )
