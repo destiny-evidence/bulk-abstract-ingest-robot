@@ -79,8 +79,7 @@ class AbstractStore:
                 "       abstract,"
                 f"      {publication_year} "
                 "FROM request "
-                "WHERE destiny_id = ANY(:destiny_ids) AND" \
-                "      enhancement_submitted IS NOT TRUE" \
+                "WHERE destiny_id = ANY(:destiny_ids);",
             )
             batch = await session.execute(stmt, {"destiny_ids": list(destiny_ids)})
             records = [Record.from_cache_destiny_tuple(row) for row in batch]
