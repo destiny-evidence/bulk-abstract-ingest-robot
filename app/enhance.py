@@ -18,7 +18,7 @@ class EnhancementRunner(Runner):
         # Get matching data from store (could be different to what we just asked to enhance)
         cache_entries = await self.store.get_entries(
             destiny_ids={reference.id for reference in references},
-            ensure_overlap=True,
+            ensure_overlap=False,
         )
 
         # Submit to repository
