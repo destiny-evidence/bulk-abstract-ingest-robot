@@ -71,7 +71,8 @@ class AbstractStore:
         self.logger.debug(f"Querying cache DB for {len(destiny_ids):,} DESTinY repository IDs...")
         async with self.db.session() as session:
             stmt = sa.text(
-                "SELECT record_id,"
+                "SELECT DISTINCT ON (destiny_id, abstract) "
+                "       record_id,"
                 "       doi,"
                 "       openalex_id,"
                 "       destiny_id,"

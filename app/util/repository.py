@@ -30,6 +30,8 @@ if TYPE_CHECKING:
 
     from .config import Settings
 
+HTTP_TIMEOUT_SECONDS = 600
+
 
 class Repository:
     """Utility class for interacting with the repository."""
@@ -47,7 +49,9 @@ class Repository:
             settings.robot_secret.get_secret_value(),
             settings.robot_id,
         )
-        self.blob_client = httpx.AsyncClient()
+        self.robot_client.session.timeout = httpx.Timeout(HTTP_TIMEOUT_SECONDS)
+
+        self.blob_client = httpx.AsyncClient(timeout=HTTP_TIMEOUT_SECONDS)
 
         self.repo_client = OAuthClient(
             settings.base_url,
@@ -57,6 +61,7 @@ class Repository:
                 settings.keycloak_id,
                 settings.keycloak_secret,
             ),
+            timeout=HTTP_TIMEOUT_SECONDS,
         )
 
     async def query_repository(self, cache_entries: list[Record]) -> list[tuple[Record, Record]]:
@@ -84,7 +89,7 @@ class Repository:
 
         async def lookup_batch(batch: list[str | IdentifierLookup]) -> list[Reference]:
             async with semaphore:
-                return await asyncio.to_thread(self.repo_client.lookup, batch, timeout=60)
+                return await asyncio.to_thread(self.repo_client.lookup, batch, timeout=HTTP_TIMEOUT_SECONDS)
 
         batch_results = await asyncio.gather(*(lookup_batch(batch) for batch in query_batches))
         references = [reference for batch in batch_results for reference in batch]
@@ -122,6 +127,7 @@ class Repository:
         batch_info = self.robot_client.poll_robot_enhancement_batch(
             robot_id=self.settings.robot_id,
             limit=self.settings.fulfil_batch_size,
+            timeout=HTTP_TIMEOUT_SECONDS,
         )
         if batch_info is None:
             return None, None
