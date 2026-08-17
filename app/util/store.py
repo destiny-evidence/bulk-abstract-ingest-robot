@@ -53,8 +53,7 @@ class AbstractStore:
                 f"      {publication_year} "
                 "FROM request "
                 "WHERE length(coalesce(abstract, '')) > :min_length AND "
-                "      requested IS NOT TRUE AND "
-                "      submitted IS NOT TRUE "
+                "      evaluated IS NOT TRUE "
                 "LIMIT :batch_size;",
             )
             batch = await session.execute(
@@ -72,7 +71,8 @@ class AbstractStore:
         self.logger.debug(f"Querying cache DB for {len(destiny_ids):,} DESTinY repository IDs...")
         async with self.db.session() as session:
             stmt = sa.text(
-                "SELECT record_id,"
+                "SELECT DISTINCT ON (destiny_id, abstract) "
+                "       record_id,"
                 "       doi,"
                 "       openalex_id,"
                 "       destiny_id,"
@@ -87,39 +87,109 @@ class AbstractStore:
             if ensure_overlap and {record.destiny_id for record in records} != destiny_ids:
                 raise RuntimeError("Did not find submittable record for all requested IDs!")
             return records
-
-    async def log_request(self, cache_entries: list[Record]) -> None:
-        """
-        Log lookup in repository.
-
-        This is not logging based on the DESTinY ID because we might have multiple matches in our database with different versions of the abstract.
-        It's up to the enhancement routine to decide which ones to use.
-        """
-        async with self.db.session() as session:
-            stmt = sa.text("UPDATE request SET requested = TRUE WHERE record_id = ANY(:record_ids);")
-            await session.execute(
-                stmt,
-                {"record_ids": [entry.record_id for entry in cache_entries if entry.record_id is not None]},
-            )
-            await session.commit()
-
+        
     async def log_submission(self, cache_entries: list[Record]) -> None:
         """Log submission to repository."""
         async with self.db.session() as session:
-            stmt = sa.text("UPDATE request SET submitted = TRUE WHERE record_id = ANY(:record_ids);")
+            stmt = sa.text("UPDATE request SET enhancement_submitted = TRUE WHERE record_id = ANY(:record_ids);")
             await session.execute(stmt, {"record_ids": [entry.record_id for entry in cache_entries if entry.record_id is not None]})
             await session.commit()
 
-    async def write_matches(self, matched_references: list[tuple[Record, Record]]) -> None:
-        """Write matched references to cache database."""
+
+    async def persist_match_results(
+        self,
+        cache_entries: list[Record],
+        matched_cache_entries: list[Record],
+        filtered_references: list[tuple[Record, Record]],
+        requested_cache_entries: list[Record],
+    ) -> None:
+        """
+        Write all provenance information to the database in a single transaction.
+
+        This prevents information loss if the process is interrupted
+        and allows us to resume from where we left off without reprocessing the same entries.
+
+
+        Updates the following database columns:
+
+            - evaluated: Marks records that have been evaluated against the destiny repository in this batch.
+            - found_destiny_reference: Marks entries that were matched to a DESTinY ID in the repository.
+            - abstract_enhancement_required: Marks entries that require an abstract enhancement to be submitted.
+            - destiny_id: Updates the DESTinY ID for matched entries.
+            - enhancement_requested: Marks entries for which enhancement requests were successfully sent to the DESTINY repository.
+
+        Args:
+            cache_entries (list[Record]): All cache items considered as part of this batch.
+            matched_cache_entries (list[Record]): Cache items that were matched to a DESTinY ID in the repository.
+            filtered_references (list[tuple[Record, Record]]): Cache items that passed the enhancement criteria.
+            requested_cache_entries (list[Record]): Cache items for which enhancement requests were
+                sent to the DESTINY repository.
+        """
+
+        evaluated_ids = sorted({entry.record_id for entry in cache_entries if entry.record_id is not None})
+        found_destiny_reference_ids = sorted({entry.record_id for entry in matched_cache_entries if entry.record_id is not None})
+        requested_ids = sorted({entry.record_id for entry in requested_cache_entries if entry.record_id is not None})
+        abstract_enhancement_required_ids = sorted({cache_entry.record_id for cache_entry, _ in filtered_references if cache_entry.record_id is not None})
+        matched_values = [
+            {
+                "record_id": cache_entry.record_id,
+                "destiny_id": reference.destiny_id,
+            }
+            for cache_entry, reference in filtered_references
+            if cache_entry.record_id is not None and reference.destiny_id is not None
+        ]
+        matched_values.sort(key=lambda row: row["record_id"])
+
+        all_touched_ids = sorted(
+            set(evaluated_ids)
+            | set(found_destiny_reference_ids)
+            | set(requested_ids)
+            | set(abstract_enhancement_required_ids)
+            | {row["record_id"] for row in matched_values}
+        )
+
         async with self.db.session() as session:
-            stmt = sa.text("UPDATE request SET destiny_id = :destiny_id WHERE record_id = :record_id;")
-            for cache_entry, reference in matched_references:
+            if all_touched_ids:
+                self.logger.debug("Acquiring row locks in deterministic order to avoid deadlocks between workers")
                 await session.execute(
-                    stmt,
-                    {
-                        "destiny_id": reference.destiny_id,
-                        "record_id": cache_entry.record_id,
-                    },
+                    sa.text(
+                        "SELECT record_id "
+                        "FROM request "
+                        "WHERE record_id = ANY(:record_ids) "
+                        "ORDER BY record_id "
+                        "FOR UPDATE;"
+                    ),
+                    {"record_ids": all_touched_ids},
                 )
+
+            if evaluated_ids:
+                await session.execute(
+                    sa.text("UPDATE request SET evaluated = TRUE WHERE record_id = ANY(:record_ids);"),
+                    {"record_ids": evaluated_ids},
+                )
+
+            if found_destiny_reference_ids:
+                await session.execute(
+                    sa.text("UPDATE request SET found_destiny_reference = TRUE WHERE record_id = ANY(:record_ids);"),
+                    {"record_ids": found_destiny_reference_ids},
+                )
+
+            if abstract_enhancement_required_ids:
+                await session.execute(
+                    sa.text("UPDATE request SET abstract_enhancement_required = TRUE WHERE record_id = ANY(:record_ids);"),
+                    {"record_ids": abstract_enhancement_required_ids},
+                )
+
+            if matched_values:
+                await session.execute(
+                    sa.text("UPDATE request SET destiny_id = :destiny_id WHERE record_id = :record_id;"),
+                    matched_values,
+                )
+
+            if requested_ids:
+                await session.execute(
+                    sa.text("UPDATE request SET enhancement_requested = TRUE WHERE record_id = ANY(:record_ids);"),
+                    {"record_ids": requested_ids},
+                )
+    
             await session.commit()
