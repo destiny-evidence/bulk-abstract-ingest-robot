@@ -125,7 +125,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "destiny-sdk", specifier = ">=0.12.6" },
+    { name = "destiny-sdk", specifier = ">=0.16.0" },
     { name = "httpx", specifier = ">=0.28.0,<0.29.0" },
     { name = "opentelemetry-distro", specifier = ">=0.57b0" },
     { name = "opentelemetry-exporter-otlp", specifier = ">=1.42.1" },
@@ -279,7 +279,7 @@ wheels = [
 
 [[package]]
 name = "destiny-sdk"
-version = "0.12.6"
+version = "0.16.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "authlib" },
@@ -290,9 +290,9 @@ dependencies = [
     { name = "pydantic" },
     { name = "python-jose", extra = ["cryptography"] },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/ee/36/bdac4c0fa3648773b1673459e0445afccfb425e2f83e7ee16c45adda71d5/destiny_sdk-0.12.6.tar.gz", hash = "sha256:424bc4906ba0908a468c524bc515e470238b1e9dc4aa1044bb96d00b3a724c7d", size = 122494, upload-time = "2026-06-11T05:22:34.521Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/c8/48/799354198fbd64ae6fd56ac093aa85d528c16ebfba8a759a496d7114b5ef/destiny_sdk-0.16.0.tar.gz", hash = "sha256:57ea720040ba35ff702b855cb842a4fd05d847389c8c3331e13be5ccf21f6d1a", size = 81959, upload-time = "2026-08-24T04:34:03.314Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/77/d1/c38c4246b39b92717452a82d7fbaebfc78f3459241d5fc3c669f4f856d35/destiny_sdk-0.12.6-py3-none-any.whl", hash = "sha256:4c6f7cdab672dc20a064ed05e93f85380cea039e2907881445f37bfc02afcd35", size = 41548, upload-time = "2026-06-11T05:22:33.511Z" },
+    { url = "https://files.pythonhosted.org/packages/ba/45/89b1e4ac98ec6017cee62858fa66b670cea145b04a538579b65002b3cd9e/destiny_sdk-0.16.0-py3-none-any.whl", hash = "sha256:b348c7ce2911b0d65860c4299e45dd9a6c96f372422462865b6d0aa9cd0d2fed", size = 45211, upload-time = "2026-08-24T04:34:04.212Z" },
 ]
 
 [[package]]

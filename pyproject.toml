@@ -20,7 +20,7 @@ dependencies = [
     "psycopg[binary]>=3.2.12,<4",
     "sqlalchemy[postgresql]>=2.0.50,<3.0",
     "typer>=0.26.7,<1.0",
-    "destiny-sdk>=0.12.6",
+    "destiny-sdk>=0.16.0",
 ]
 
 [dependency-groups]
