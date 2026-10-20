@@ -1,22 +1,22 @@
 # Bulk abstract ingestion robot
 
-This robot iterates PIK's meta cache (`requests` relation) and submits abstract enhancements for references with missing abstracts in the repository.
+This robot iterates a database of externally sources references (`references` relation) and submits abstract enhancements for references with missing abstracts in the repository.
 
 ## Setup
 
-### VM Setup
-1. Spin up VM with postgres
-2. `pg_restore` the database dump
-3. Add columns
+### Local Setup
 
-```postgresql
-ALTER TABLE request ADD COLUMN destiny_id uuid;
-ALTER TABLE request ADD COLUMN evaluated bool DEFAULT FALSE;
-ALTER TABLE request ADD COLUMN found_destiny_reference bool DEFAULT FALSE;
-ALTER TABLE request ADD COLUMN abstract_enhancement_required bool DEFAULT FALSE;
-ALTER TABLE request ADD COLUMN enhancement_requested bool DEFAULT FALSE;
-ALTER TABLE request ADD COLUMN enhancement_submitted bool DEFAULT FALSE;
+For local development, the references database runs as part of the Docker Compose stack: a `postgres` service is initialised from [docker/postgres/init.sql](docker/postgres/init.sql), which creates the `request` relation (with a few sample rows) including all tracking columns the robot needs. No further setup is required — `docker compose up` brings the database and both runners up together.
+
+Useful commands:
+
+```sh
+docker compose logs -f postgres
+psql postgresql://pguser:password@127.0.0.1:5432/references  # the port is published to the host
+docker compose down  # add -v to drop the database volume; init.sql re-runs on next start
 ```
+
+To point the robot at a different database (e.g. the VM below), set `DB_HOST` in your `.env` file.
 
 ### Requirements
 
@@ -73,6 +73,7 @@ The robot can be configured using environment variables:
 - `ROBOT_SECRET`: The robot's secret key for HMAC authentication
 - `POLL_INTERVAL_SECONDS`: How often to poll for new batches (default: 30)
 - `BATCH_SIZE`: The number of references to include per enhancement batch (default: 5)
+- `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`: References database connection (defaults match the `postgres` compose service)
 - ... see `app.util.config -> Settings`
 
 ## Application
@@ -91,6 +92,7 @@ docker compose up --build
 
 Services:
 
+- `postgres`: the references database, initialised from [docker/postgres/init.sql](docker/postgres/init.sql)
 - `match`: runs `python run_robot.py match`
 - `enhance`: runs `python run_robot.py enhance`
 
@@ -102,9 +104,7 @@ docker compose logs -f enhance
 docker compose down
 ```
 
-
 ## Implemented request flow
-
 
 ## Authentication Against Destiny Repository
 
@@ -114,4 +114,4 @@ Authentication between the Toy Robot and Destiny Repository uses HMAC authentica
 
 - If you are running the toy robot with a local instance of destiny repository that is not enforcing authentication, add `ENV=local` to your `.env` file. This will cause the toy-robot to bypass authentication. This is to allow easy development only and the robot should not be deployed with `env=local`.
   - In this case you will need to set dummy values for the `ROBOT_ID` and the `ROBOT_SECRET`. For example `ROBOT_ID="9fa8b9bd-12b1-4450-affb-712face23390"` and `ROBOT_SECRET="dummy_secret"`
-- If you want to deploy the Toy Robot and use it with destiny repository, the robot will need to be registered with that deployment of destiny repository. The registration process will provide the robot_id and client_secret needed to configure authentication. You can check out the proceedure for registering a robot [here](https://destiny-evidence.github.io/destiny-repository/procedures/robot-registration.html).
+- If you want to deploy the Toy Robot and use it with destiny repository, the robot will need to be registered with that deployment of destiny repository. The registration process will provide the robot_id and client_secret needed to configure authentication. You can check out the procedure for registering a robot [in the ODS documentation](https://destiny-evidence.github.io/destiny-repository/procedures/robot-registration.html).

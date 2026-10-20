@@ -1,13 +1,16 @@
 """Utility class for interacting with the repository."""
 
 import asyncio
-from typing import TYPE_CHECKING
+import logging
+from collections.abc import Sequence
+from uuid import UUID
 
 import httpx
 from destiny_sdk.client import KeycloakOAuthMiddleware, OAuthClient, RobotClient
 from destiny_sdk.enhancements import (
     AbstractContentEnhancement,
     AbstractProcessType,
+    BibliographicMetadataEnhancement,
     Enhancement,
 )
 from destiny_sdk.identifiers import (
@@ -22,15 +25,46 @@ from destiny_sdk.robots import (
     RobotEnhancementBatchResult,
 )
 from destiny_sdk.visibility import Visibility
-from uuid import UUID
-from .types import Record, flatten_reference
 
-if TYPE_CHECKING:
-    import logging
-
-    from .config import Settings
+from ..db.schemas import ODSRecord, ParsedRecord
+from .config import Settings
 
 HTTP_TIMEOUT_SECONDS = 600
+
+
+def flatten_reference(reference: Reference) -> ODSRecord:  # noqa: PLR0912
+    """Take nested DESTinY `Reference` and transform into (mostly) flat `Record`."""
+    record = ODSRecord(destiny_id=reference.id)
+
+    for identifier in reference.identifiers or []:
+        if identifier.identifier is None or type(identifier.identifier) is not str:
+            continue
+
+        if identifier.identifier_type == ExternalIdentifierType.OPEN_ALEX and record.openalex_id is None:
+            record.openalex_id = identifier.identifier
+        elif identifier.identifier_type == ExternalIdentifierType.DOI and record.doi is None:
+            record.doi = identifier.identifier
+        elif identifier.identifier_type == ExternalIdentifierType.PM_ID and record.pubmed_id is None:  # type: ignore[comparison-overlap]
+            record.pubmed_id = identifier.identifier
+
+    for enhancement in reference.enhancements or []:
+        if isinstance(enhancement.content, BibliographicMetadataEnhancement):
+            if enhancement.content.publication_year is not None:
+                if record.publication_years is None:
+                    record.publication_years = []
+                record.publication_years.append(enhancement.content.publication_year)
+
+            if enhancement.content.title is not None:
+                if record.titles is None:
+                    record.titles = []
+                record.titles.append(enhancement.content.title)
+
+        elif isinstance(enhancement.content, AbstractContentEnhancement):
+            if record.abstracts is None:
+                record.abstracts = []
+            record.abstracts.append(enhancement.content.abstract)
+
+    return record
 
 
 class Repository:
@@ -64,7 +98,7 @@ class Repository:
             timeout=HTTP_TIMEOUT_SECONDS,
         )
 
-    async def query_repository(self, cache_entries: list[Record]) -> list[tuple[Record, Record]]:
+    async def query_repository(self, cache_entries: Sequence[ParsedRecord]) -> list[tuple[ParsedRecord, ODSRecord]]:
         """
         Get DESTinY references for the given PIK works, matching by OpenAlex ID.
 
@@ -103,7 +137,7 @@ class Repository:
         self.logger.debug(
             f"Queried for {len(entries):,} OpenAlex IDs in {len(query_batches):,} lookup requests "
             f"(batch size <= {batch_size}, concurrency {self.settings.repository_lookup_concurrency}); "
-            f"received {len(references):,} references of which {len(matched_references):,} matched"
+            f"received {len(references):,} references of which {len(matched_references):,} matched",
         )
 
         return matched_references
@@ -141,7 +175,7 @@ class Repository:
 
         return batch_info, references
 
-    async def submit_enhancements(self, batch_info: RobotEnhancementBatch, cache_entries: list[Record]) -> None:
+    async def submit_enhancements(self, batch_info: RobotEnhancementBatch, cache_entries: Sequence[ParsedRecord]) -> None:
         """Submit enhancements to repository."""
         enhancements = self._records_to_enhancements(cache_entries)
         await self._upload_enhancements(
@@ -150,7 +184,7 @@ class Repository:
         )
         self._finalise_enhancement_batch(batch_info.id)
 
-    def _records_to_enhancements(self, records: list[Record]) -> bytes:
+    def _records_to_enhancements(self, records: Sequence[ParsedRecord]) -> bytes:
         file_content = b""
         for record in records:
             if record.destiny_id is None or record.abstract is None:
@@ -158,7 +192,7 @@ class Repository:
 
             abstract_enhancement = Enhancement(
                 reference_id=record.destiny_id,
-                source=f"{self.settings.repository_provenance} ({record.source or 'OTHER'})",
+                source=f"{self.settings.repository_provenance} ({record.source})",
                 visibility=Visibility.RESTRICTED,
                 robot_version=self.settings.robot_version,
                 content=AbstractContentEnhancement(
