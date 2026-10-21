@@ -5,10 +5,10 @@ import tomllib
 from enum import StrEnum
 from functools import lru_cache
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any
 from uuid import UUID
 
-from pydantic import Field, HttpUrl, SecretStr
+from pydantic import AfterValidator, Field, HttpUrl, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -102,6 +102,10 @@ class Settings(BaseSettings):
         default=30,
         description="How long to sleep between enhancement batches (seconds)",
     )
+    queue_interval_seconds: int = Field(
+        default=3600,  # defaults to checking once per hour
+        description="How long to sleep between checking for new files to transfer to ingest queue (seconds)",
+    )
     request_batch_size: int = Field(
         default=10,
         description="The number of references to include per enhancement batch",
@@ -176,6 +180,15 @@ class Settings(BaseSettings):
     repository_provenance: str = Field(
         default="PIK Metadata Cache",
         description="How do we want to call this abstract enhancement source",
+    )
+
+    api_wrapper_endpoint: Annotated[str, AfterValidator(lambda v: v.rstrip("/"))] = Field(
+        default="http://localhost:8000/api",
+        description="Public REST API of the academic-api tool without trailing slash",
+    )
+    api_wrapper_api_key: str = Field(
+        default="very-secret",
+        description="Authentication key for the academic-api tool API",
     )
 
 

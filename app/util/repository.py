@@ -11,7 +11,8 @@ from destiny_sdk.enhancements import (
     AbstractContentEnhancement,
     AbstractProcessType,
     BibliographicMetadataEnhancement,
-    Enhancement, RawEnhancement,
+    Enhancement,
+    RawEnhancement,
 )
 from destiny_sdk.identifiers import (
     ExternalIdentifierType,
@@ -25,7 +26,6 @@ from destiny_sdk.robots import (
     RobotEnhancementBatchResult,
 )
 from destiny_sdk.visibility import Visibility
-from psycopg import raw_cursor
 
 from ..db.schemas import ODSRecord, ParsedRecord, ParsedRecordExtra
 from .config import Settings
@@ -118,7 +118,7 @@ class Repository:
         ]
 
         batch_size = self.settings.repository_lookup_batch_size
-        query_batches = [query[i: i + batch_size] for i in range(0, len(query), batch_size)]
+        query_batches = [query[i : i + batch_size] for i in range(0, len(query), batch_size)]
 
         semaphore = asyncio.Semaphore(self.settings.repository_lookup_concurrency)
 
@@ -223,8 +223,7 @@ class Repository:
                     },
                 ),
             )
-            file_content += (f"{abstract_enhancement.to_jsonl()}\n"
-                             f"{raw_enhancement.to_jsonl()}\n").encode("utf-8")
+            file_content += (f"{abstract_enhancement.to_jsonl()}\n{raw_enhancement.to_jsonl()}\n").encode()
 
         return file_content
 
