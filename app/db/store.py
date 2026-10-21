@@ -69,6 +69,10 @@ class AbstractStore:
         """Get parsed entries for DESTinY IDs and optionally check the sets overlap."""
         return [ParsedRecord.from_record(record) for record in await self.get_entries(destiny_ids=destiny_ids, ensure_overlap=ensure_overlap)]
 
+    async def get_parsed_extra_entries(self, destiny_ids: set[UUID], ensure_overlap: bool = False) -> Sequence[ParsedRecordExtra]:
+        """Get parsed entries with raw payload for DESTinY IDs and optionally check the sets overlap."""
+        return [ParsedRecordExtra.from_record(record) for record in await self.get_entries(destiny_ids=destiny_ids, ensure_overlap=ensure_overlap)]
+
     async def log_submission(self, cache_entries: Sequence[ParsedRecord]) -> None:
         """Log submission to repository."""
         async with self.db.session() as session:

@@ -11,7 +11,7 @@ from destiny_sdk.enhancements import (
     AbstractContentEnhancement,
     AbstractProcessType,
     BibliographicMetadataEnhancement,
-    Enhancement,
+    Enhancement, RawEnhancement,
 )
 from destiny_sdk.identifiers import (
     ExternalIdentifierType,
@@ -25,8 +25,9 @@ from destiny_sdk.robots import (
     RobotEnhancementBatchResult,
 )
 from destiny_sdk.visibility import Visibility
+from psycopg import raw_cursor
 
-from ..db.schemas import ODSRecord, ParsedRecord
+from ..db.schemas import ODSRecord, ParsedRecord, ParsedRecordExtra
 from .config import Settings
 
 HTTP_TIMEOUT_SECONDS = 600
@@ -117,7 +118,7 @@ class Repository:
         ]
 
         batch_size = self.settings.repository_lookup_batch_size
-        query_batches = [query[i : i + batch_size] for i in range(0, len(query), batch_size)]
+        query_batches = [query[i: i + batch_size] for i in range(0, len(query), batch_size)]
 
         semaphore = asyncio.Semaphore(self.settings.repository_lookup_concurrency)
 
@@ -175,7 +176,7 @@ class Repository:
 
         return batch_info, references
 
-    async def submit_enhancements(self, batch_info: RobotEnhancementBatch, cache_entries: Sequence[ParsedRecord]) -> None:
+    async def submit_enhancements(self, batch_info: RobotEnhancementBatch, cache_entries: Sequence[ParsedRecordExtra]) -> None:
         """Submit enhancements to repository."""
         enhancements = self._records_to_enhancements(cache_entries)
         await self._upload_enhancements(
@@ -184,7 +185,7 @@ class Repository:
         )
         self._finalise_enhancement_batch(batch_info.id)
 
-    def _records_to_enhancements(self, records: Sequence[ParsedRecord]) -> bytes:
+    def _records_to_enhancements(self, records: Sequence[ParsedRecordExtra]) -> bytes:
         file_content = b""
         for record in records:
             if record.destiny_id is None or record.abstract is None:
@@ -200,7 +201,30 @@ class Repository:
                     process=AbstractProcessType.OTHER,
                 ),
             )
-            file_content += (abstract_enhancement.to_jsonl() + "\n").encode("utf-8")
+            raw_enhancement = Enhancement(
+                reference_id=record.destiny_id,
+                source=f"{self.settings.repository_provenance} ({record.source})",
+                visibility=Visibility.RESTRICTED,
+                robot_version=self.settings.robot_version,
+                content=RawEnhancement(
+                    data=record.raw,
+                    source_export_date=record.created_at,  # date of when this was queued; typically close enough to when it was retrieved
+                    description="Unprocessed bibliographic meta-data",
+                    metadata={
+                        "source": record.source,
+                        "format": record.format,
+                        "doi": record.doi,
+                        "openalex_id": record.openalex_id,
+                        "wos_id": record.wos_id,
+                        "scopus_id": record.scopus_id,
+                        "s2_id": record.s2_id,
+                        "pubmed_id": record.pubmed_id,
+                        "dimensions_id": record.dimensions_id,
+                    },
+                ),
+            )
+            file_content += (f"{abstract_enhancement.to_jsonl()}\n"
+                             f"{raw_enhancement.to_jsonl()}\n").encode("utf-8")
 
         return file_content
 

@@ -16,7 +16,7 @@ class EnhancementRunner(Runner):
             return
 
         # Get matching data from store (could be different to what we just asked to enhance)
-        cache_entries = await self.store.get_parsed_entries(
+        cache_entries = await self.store.get_parsed_extra_entries(
             destiny_ids={reference.id for reference in references},
             ensure_overlap=True,
         )
