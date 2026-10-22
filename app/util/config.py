@@ -190,6 +190,14 @@ class Settings(BaseSettings):
         default="very-secret",
         description="Authentication key for the academic-api tool API",
     )
+    api_wrapper_checkpoint_interval: int = Field(
+        default=1000,
+        description="Number of rows to process before submitting checkpoint to academic-api tool API.",
+    )
+    transfer_locks_path: Path = Field(
+        default=Path(".locks"),
+        description="Directory where to host locks so multiple transfer processes don't work on the same file.",
+    )
 
 
 @lru_cache(maxsize=1)
