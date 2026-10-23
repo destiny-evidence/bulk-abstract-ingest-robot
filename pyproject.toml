@@ -9,7 +9,7 @@ dev = [
     "pytest-httpx~=0.36.2",
     "pytest~=9.1.1",
     "ruff~=0.17.1",
-    "zensical~=0.0.72",
+    "zensical~=0.0.71",
 ]
 
 [project]
