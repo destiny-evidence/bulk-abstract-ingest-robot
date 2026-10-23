@@ -1,10 +1,10 @@
 """Task for single loop of the enhancement runner."""
 
-from .util import Runner
+from app.util import Runner
 
 
 class EnhancementRunner(Runner):
-    """Runner for writing abstract enhancements to repository.."""
+    """Runner for writing abstract enhancements to repository."""
 
     async def _loop_task(self) -> None:
         """Task for single loop of the enhancement runner."""
@@ -16,7 +16,7 @@ class EnhancementRunner(Runner):
             return
 
         # Get matching data from store (could be different to what we just asked to enhance)
-        cache_entries = await self.store.get_entries(
+        cache_entries = await self.store.get_parsed_extra_entries(
             destiny_ids={reference.id for reference in references},
             ensure_overlap=True,
         )
@@ -28,7 +28,4 @@ class EnhancementRunner(Runner):
         await self.store.log_submission(cache_entries=cache_entries)
 
         self.total_entries_processed += len(cache_entries)
-        self.loop_logger.info(
-            f"[Total: {self.total_entries_processed:,} entries] "
-            f"Submitted {len(cache_entries):,} enhancements."
-        )
+        self.loop_logger.info(f"[Total: {self.total_entries_processed:,} entries] Submitted {len(cache_entries):,} enhancements.")

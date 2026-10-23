@@ -1,0 +1,2 @@
+-- Docker Postgres init SQL script
+-- Note: Tables will be created automatically by SQLModel

@@ -1,14 +1,40 @@
 services:
+  postgres:
+    image: postgres:18-alpine
+    environment:
+      - "POSTGRES_DB=${DB_NAME:-meta_cache}"
+      - "POSTGRES_USER=${DB_USER:-pguser}"
+      - "POSTGRES_PASSWORD=${DB_PASSWORD:-password}"
+    ports:
+      # Exposed on the host so the robot can be run outside Docker with the default localhost settings
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${DB_USER:-pguser} -d ${DB_NAME:-meta_cache}",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    restart: unless-stopped
+
   match:
     build:
       context: .
-    command: ["uv", "run","python", "run_robot.py", "match"]
+    command: ["uv", "run", "python", "run_robot.py", "match"]
     env_file:
       - .env
     extra_hosts:
       - "host.docker.internal:host-gateway"
     environment:
-      - "PIK_DB_HOST=host.docker.internal"
+      - "DB_HOST=${DB_HOST:-postgres}"
+    depends_on:
+      postgres:
+        condition: service_healthy
     restart: unless-stopped
 
   enhance:
@@ -20,5 +46,11 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     environment:
-      - "PIK_DB_HOST=host.docker.internal"
+      - "DB_HOST=${DB_HOST:-postgres}"
+    depends_on:
+      postgres:
+        condition: service_healthy
     restart: unless-stopped
+
+volumes:
+  postgres_data:

@@ -181,3 +181,7 @@ cython_debug/
 .terraform/
 
 .misc/
+.config/*
+!.config/logging.json
+!.config/.env.example
+/docs/site/

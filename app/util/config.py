@@ -4,39 +4,12 @@ import logging
 import tomllib
 from enum import StrEnum
 from functools import lru_cache
-from typing import Any
-
-from pydantic import Field, HttpUrl, SecretStr
-from pydantic_settings import BaseSettings, SettingsConfigDict
-from uuid import UUID
 from pathlib import Path
+from typing import Annotated, Any
+from uuid import UUID
 
-
-def configure_logging(base_level: int | str = "INFO") -> None:
-    """Configure logging for the application."""
-
-    httpx_level = logging.DEBUG if (base_level == logging.DEBUG or base_level == "DEBUG") else logging.WARNING
-    logging.getLogger("httpx").setLevel(httpx_level)
-
-    logging.basicConfig(
-        level=base_level,
-        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    )
-
-
-def get_logger(
-    name: str,
-    level: str | None = None,
-    init_logging: bool = False,
-    base_level: int | str = "INFO",
-) -> logging.Logger:
-    """Get an initialised logger."""
-    if init_logging:
-        configure_logging(base_level=base_level)
-    logger = logging.getLogger(name)
-    if level is not None:
-        logger.setLevel(level)
-    return logger
+from pydantic import AfterValidator, Field, HttpUrl, SecretStr
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Environment(StrEnum):
@@ -89,6 +62,9 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
+    log_config: Path = Path(".config/logging.json")
+    loglevel: int = logging.DEBUG
+
     robot_secret: SecretStr = Field(
         description="Secret needed for communicating with destiny repo.",
     )
@@ -120,30 +96,34 @@ class Settings(BaseSettings):
 
     match_interval_seconds: int = Field(
         default=30,
-        description=("How long to sleep between match requests (seconds)"),
+        description="How long to sleep between match requests (seconds)",
     )
     enhance_interval_seconds: int = Field(
         default=30,
-        description=("How long to sleep between enhancement batches (seconds)"),
+        description="How long to sleep between enhancement batches (seconds)",
+    )
+    queue_interval_seconds: int = Field(
+        default=3600,  # defaults to checking once per hour
+        description="How long to sleep between checking for new files to transfer to ingest queue (seconds)",
     )
     request_batch_size: int = Field(
         default=10,
-        description=("The number of references to include per enhancement batch"),
+        description="The number of references to include per enhancement batch",
     )
     fulfil_batch_size: int = Field(
         default=10,
-        description=("The number of references to include per enhancement batch"),
+        description="The number of references to include per enhancement batch",
     )
     repository_lookup_batch_size: int = Field(
         default=100,
         ge=1,
         le=100,
-        description=("Maximum number of identifiers to include in a single repository lookup request"),
+        description="Maximum number of identifiers to include in a single repository lookup request",
     )
     repository_lookup_concurrency: int = Field(
         default=1,
         ge=1,
-        description=("Maximum number of concurrent repository lookup requests."),
+        description="Maximum number of concurrent repository lookup requests.",
     )
 
     keycloak_id: str | None = Field(default=None, description="keycloak client id")
@@ -155,27 +135,27 @@ class Settings(BaseSettings):
         default="https://auth.evidence-repository.org/",
         description="keycloak authentication url",
     )
-    keycloak_realm: str = Field(default="destiny", description="keycloak realm ")
+    keycloak_realm: str = Field(default="destiny", description="keycloak realm")
 
-    pik_db_user: str = Field(
+    db_user: str = Field(
         default="pguser",
-        description=("meta-cache database user"),
+        description="references database user",
     )
-    pik_db_password: str = Field(
+    db_password: str = Field(
         default="password",
-        description=("meta-cache database password"),
+        description="references database password",
     )
-    pik_db_host: str = Field(
+    db_host: str = Field(
         default="localhost",
-        description=("meta-cache database host"),
+        description="references database host",
     )
-    pik_db_port: int = Field(
+    db_port: int = Field(
         default=5432,
-        description=("meta-cache database port"),
+        description="references database port",
     )
-    pik_db_name: str = Field(
-        default="meta_cache",
-        description=("meta-cache database name"),
+    db_name: str = Field(
+        default="references",
+        description="references database name",
     )
 
     publication_year_tolerance: int = Field(
@@ -187,11 +167,36 @@ class Settings(BaseSettings):
     )
     min_abstract_length: int = Field(
         default=200,
-        description=("Minimum length of abstract that we might consider for submitting to the repository"),
+        description="Minimum length of abstract that we might consider for submitting to the repository",
+    )
+    max_abstract_slop: int = Field(
+        default=100,
+        description="Threshold for edit distance between abstracts to consider them identical",
+    )
+    max_title_slop: int = Field(
+        default=10,
+        description="Threshold for edit distance between titles to consider them identical",
     )
     repository_provenance: str = Field(
         default="PIK Metadata Cache",
-        description=("How do we want to call this abstract enhancement source"),
+        description="How do we want to call this abstract enhancement source",
+    )
+
+    api_wrapper_endpoint: Annotated[str, AfterValidator(lambda v: v.rstrip("/"))] = Field(
+        default="http://localhost:8000/api",
+        description="Public REST API of the academic-api tool without trailing slash",
+    )
+    api_wrapper_api_key: str = Field(
+        default="very-secret",
+        description="Authentication key for the academic-api tool API",
+    )
+    api_wrapper_checkpoint_interval: int = Field(
+        default=1000,
+        description="Number of rows to process before submitting checkpoint to academic-api tool API.",
+    )
+    transfer_locks_path: Path = Field(
+        default=Path(".locks"),
+        description="Directory where to host locks so multiple transfer processes don't work on the same file.",
     )
 
 

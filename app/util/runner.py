@@ -2,14 +2,16 @@
 
 import asyncio
 import contextlib
+import logging
 import signal
 import sys
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING
 
-from .config import get_logger, get_settings
+from ..db.store import AbstractStore
+from .config import get_settings
+from .logging import init_logging
 from .repository import Repository
-from .store import AbstractStore
 
 if TYPE_CHECKING:
     from types import FrameType
@@ -18,11 +20,11 @@ if TYPE_CHECKING:
 class Runner(ABC):
     """Abstract runner class with main loop."""
 
-    def __init__(self, name: str, db_debug: bool = False, loglevel: str | int = "INFO", loop_interval_seconds: int = 0) -> None:
+    def __init__(self, name: str, loglevel: str | int = "INFO", loop_interval_seconds: int = 0) -> None:
         """Initialise runner."""
         self.settings = get_settings()
-
-        logger = get_logger("abstracts-robot", init_logging=True, base_level=loglevel)
+        init_logging(default_level=loglevel)
+        logger = logging.getLogger("abstracts-robot")
         self.logger = logger.getChild(name)
         self.loop_logger = self.logger.getChild("loop")
         self.loop_interval_seconds = loop_interval_seconds
@@ -32,7 +34,6 @@ class Runner(ABC):
         self.store = AbstractStore(
             settings=self.settings,
             logger=logger.getChild("store"),
-            debug_db=db_debug,
         )
         self.shutdown_event = asyncio.Event()
 
