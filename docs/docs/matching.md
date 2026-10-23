@@ -2,7 +2,7 @@
 
 The heart of the robot is a deliberately simple question, asked once per cached record by the match runner (`MatchRunner.should_enhance`, `app/robots/match.py`):
 
-> *Is this cached abstract sufficiently different (or the repository abstract sufficiently absent/broken) that submitting it improves the index without a meaningful risk of overwriting something correct?*
+> _Is this cached abstract sufficiently different (or the repository abstract sufficiently absent/broken) that submitting it improves the index without a meaningful risk of overwriting something correct?_
 
 This is **not** deduplication — it is a plausibility filter. Full deduplication and data fusion will live in the proper ingestion flow that eventually replaces this robot.
 
@@ -46,15 +46,15 @@ flowchart TD
 
 For every accepted record the enhance runner submits **two enhancements** (see `Repository._records_to_enhancements`):
 
-| Enhancement | Content |
-|---|---|
-| `AbstractContentEnhancement` | The cached abstract (`process = OTHER`). |
-| `RawEnhancement` | The entire raw source record plus known external identifiers and the source export date — nothing is thrown away, so future pipelines can use fields this robot ignores. |
+| Enhancement                  | Content                                                                                                                                                                  |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `AbstractContentEnhancement` | The cached abstract (`process = OTHER`).                                                                                                                                 |
+| `RawEnhancement`             | The entire raw source record plus known external identifiers and the source export date — nothing is thrown away, so future pipelines can use fields this robot ignores. |
 
 Both are submitted with `RESTRICTED` visibility and a provenance string built from `REPOSITORY_PROVENANCE` and the source database, e.g. `PIK Metadata Cache (SCOPUS)`.
 
 !!! note "Why submit the raw payload even when the abstract is rejected?"
-    It isn't — currently raw enhancements accompany accepted abstracts only. The open question of attaching `RawEnhancement`s to *all* plausible matches (not just those with a new abstract) was raised in [issue #7](https://github.com/destiny-evidence/bulk-abstract-ingest-robot/issues/7) and is not implemented.
+It isn't — currently raw enhancements accompany accepted abstracts only. The open question of attaching `RawEnhancement`s to _all_ plausible matches (not just those with a new abstract) was raised in [issue #7](https://github.com/destiny-evidence/bulk-abstract-ingest-robot/issues/7) and is not implemented.
 
 ## Design rationale
 
@@ -62,6 +62,6 @@ The rules were refined while planning the API-wrapper ingestion ([issue #7](http
 
 - **Match by identifier only.** DOIs (and OpenAlex IDs) are not perfectly reliable, and production data shows roughly 1 in 500 DOIs held by two unmerged references. The year + title plausibility checks exist precisely so that a wrong identifier match fails the rules instead of getting a wrong abstract.
 - **Title similarity was added** compared to the first version of the robot (which only checked year tolerance and abstract mismatch) to reduce false-positive matches.
-- **"Different enough" replaces "always submit".** Rather than offering any abstract we have, we only submit when no sufficiently similar abstract exists in the repository already. We deliberately do *not* try to judge which abstract "looks better" (e.g. always preferring the longer one) — that decision belongs to a future best-abstract mechanism.
+- **"Different enough" replaces "always submit".** Rather than offering any abstract we have, we only submit when no sufficiently similar abstract exists in the repository already. We deliberately do _not_ try to judge which abstract "looks better" (e.g. always preferring the longer one) — that decision belongs to a future best-abstract mechanism.
 - **Double submissions are acceptable.** The repository handles duplicate enhancements; the robot does not spend effort preventing them.
 - **No new references.** The robot only enhances what already exists in the index.

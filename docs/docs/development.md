@@ -55,11 +55,11 @@ docker compose up --build
 
 Services in `compose.yaml`:
 
-| Service | Runs |
-|---|---|
+| Service    | Runs                                                              |
+| ---------- | ----------------------------------------------------------------- |
 | `postgres` | Postgres 18, volume-persisted, port published to `127.0.0.1:5432` |
-| `match` | `python run_robot.py match` with `DB_HOST=postgres` |
-| `enhance` | `python run_robot.py enhance` with `DB_HOST=postgres` |
+| `match`    | `python run_robot.py match` with `DB_HOST=postgres`               |
+| `enhance`  | `python run_robot.py enhance` with `DB_HOST=postgres`             |
 
 ```sh
 docker compose logs -f match
@@ -68,7 +68,7 @@ docker compose down
 ```
 
 !!! info "Queue runner not wired up yet"
-    `app/robots/queue.py` implements the blob-storage transfer loop, but it is not yet selectable from `run_robot.py` or included in `compose.yaml`. Until then, feed the `records` table by other means, or add a `search_ingest` row and run the loop manually. See [PR #8](https://github.com/destiny-evidence/bulk-abstract-ingest-robot/pull/8).
+`app/robots/queue.py` implements the blob-storage transfer loop, but it is not yet selectable from `run_robot.py` or included in `compose.yaml`. Until then, feed the `records` table by other means, or add a `search_ingest` row and run the loop manually. See [PR #8](https://github.com/destiny-evidence/bulk-abstract-ingest-robot/pull/8).
 
 ### Feeding data manually
 
@@ -116,7 +116,7 @@ uv run zensical serve    # live preview at http://127.0.0.1:8000
 uv run zensical build --clean
 ```
 
-Mermaid diagrams are written as ```` ```mermaid ```` code blocks directly in the Markdown.
+Mermaid diagrams are written as ` ```mermaid ` code blocks directly in the Markdown.
 
 ## Operations notes
 

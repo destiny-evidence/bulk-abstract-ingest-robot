@@ -4,14 +4,14 @@ The robot is a set of small, independent **runner** processes that never talk to
 
 ## Runners
 
-| Runner | Module | Loop interval | Job |
-|---|---|---|---|
-| **Queue runner** | `app/robots/queue.py` | `QUEUE_INTERVAL_SECONDS` (default 1 h) | Streams JSONL files from Azure blob storage into the `records` table, checkpointing progress on the `search_ingest` row. |
-| **Match runner** | `app/robots/match.py` | `MATCH_INTERVAL_SECONDS` (default 30 s) | Takes a batch of not-yet-evaluated records, looks them up in the repository by OpenAlex ID, filters them through the [enhancement rules](matching.md) and requests enhancements. |
-| **Enhance runner** | `app/robots/enhance.py` | `ENHANCE_INTERVAL_SECONDS` (default 30 s) | Polls the repository for approved enhancement batches, fetches the abstracts from the cache and submits the enhancements. |
+| Runner             | Module                  | Loop interval                             | Job                                                                                                                                                                              |
+| ------------------ | ----------------------- | ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Queue runner**   | `app/robots/queue.py`   | `QUEUE_INTERVAL_SECONDS` (default 1 h)    | Streams JSONL files from Azure blob storage into the `records` table, checkpointing progress on the `search_ingest` row.                                                         |
+| **Match runner**   | `app/robots/match.py`   | `MATCH_INTERVAL_SECONDS` (default 30 s)   | Takes a batch of not-yet-evaluated records, looks them up in the repository by OpenAlex ID, filters them through the [enhancement rules](matching.md) and requests enhancements. |
+| **Enhance runner** | `app/robots/enhance.py` | `ENHANCE_INTERVAL_SECONDS` (default 30 s) | Polls the repository for approved enhancement batches, fetches the abstracts from the cache and submits the enhancements.                                                        |
 
 !!! info "Queue runner status"
-    The queue runner is implemented but not yet wired into `run_robot.py` (the CLI currently accepts `match` and `enhance`). It is also not part of `compose.yaml` yet. See [PR #8](https://github.com/destiny-evidence/bulk-abstract-ingest-robot/pull/8).
+The queue runner is implemented but not yet wired into `run_robot.py` (the CLI currently accepts `match` and `enhance`). It is also not part of `compose.yaml` yet. See [PR #8](https://github.com/destiny-evidence/bulk-abstract-ingest-robot/pull/8).
 
 ## End-to-end sequence
 
@@ -56,7 +56,7 @@ sequenceDiagram
 
 The match and enhance runners never share in-memory state. The match runner records `abstract_enhancement_required`, `enhancement_requested` and the `destiny_id` on each cache row; the enhance runner later re-reads the records **by DESTinY ID** when the repository hands out an approved batch. This means:
 
-- the repository decides *when* work is done (the robot only polls),
+- the repository decides _when_ work is done (the robot only polls),
 - the robot can restart at any point without losing track of what was requested vs. submitted,
 - the data actually submitted is re-fetched from the cache at submission time, so it always matches the latest parsed state of the record.
 
@@ -70,12 +70,12 @@ Two mechanisms allow multiple worker processes to run without double work:
 
 ## Crash resilience
 
-| Failure | Recovery |
-|---|---|
-| Queue runner dies mid-file | Progress was checkpointed (`checkpoint_bytes` / `checkpoint_rows`) at every `API_WRAPPER_CHECKPOINT_INTERVAL` rows; the next run resumes streaming at that byte offset. |
-| Match runner dies mid-batch | All provenance writes happen in **one atomic transaction** — either every tracking flag for the batch is written, or none. Records are re-processed on the next poll. |
-| Enhance runner dies before finalising a batch | The repository never sees a completed batch result and will hand it out again. Double-submitting enhancements is acceptable by design. |
-| Whole host dies | File locks are released by the OS; checkpoints and tracking flags in Postgres tell the next run exactly where to continue. |
+| Failure                                       | Recovery                                                                                                                                                                |
+| --------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Queue runner dies mid-file                    | Progress was checkpointed (`checkpoint_bytes` / `checkpoint_rows`) at every `API_WRAPPER_CHECKPOINT_INTERVAL` rows; the next run resumes streaming at that byte offset. |
+| Match runner dies mid-batch                   | All provenance writes happen in **one atomic transaction** — either every tracking flag for the batch is written, or none. Records are re-processed on the next poll.   |
+| Enhance runner dies before finalising a batch | The repository never sees a completed batch result and will hand it out again. Double-submitting enhancements is acceptable by design.                                  |
+| Whole host dies                               | File locks are released by the OS; checkpoints and tracking flags in Postgres tell the next run exactly where to continue.                                              |
 
 ## Related components
 

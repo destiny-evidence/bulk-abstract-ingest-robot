@@ -1,37 +1,78 @@
 [project]
-site_url = "https://www.example.com/"
-site_name = "Bulk Abstract Ingest Robot"
-site_description = "Boosting DESTinY abstract coverage from academic database exports, one reference at a time."
-site_author = "Tim Repke"
-
 copyright = "Copyright &copy; 2026 The bulk abstract ingest robot contributors"
-
-repo_url = "https://github.com/destiny-evidence/bulk-abstract-ingest-robot"
-repo_name = "destiny-evidence/bulk-abstract-ingest-robot"
 edit_uri = "edit/main/docs/docs/"
-
-nav = [
-    { "Get started" = "index.md" },
-    { "Architecture" = "architecture.md" },
-    { "Data model" = "data-model.md" },
-    { "Enhancement rules" = "matching.md" },
-    { "Configuration" = "configuration.md" },
-    { "Development and operations" = "development.md" },
-]
-
 extra_javascript = [
     # https://unpkg.com/mermaid@11.17.2/dist/mermaid.min.js
     "assets/mermaid.min.js",
 ]
+nav = [
+    { "Architecture" = "architecture.md" },
+    { "Configuration" = "configuration.md" },
+    { "Data model" = "data-model.md" },
+    { "Development and operations" = "development.md" },
+    { "Enhancement rules" = "matching.md" },
+    { "Get started" = "index.md" },
+]
+repo_name = "destiny-evidence/bulk-abstract-ingest-robot"
+repo_url = "https://github.com/destiny-evidence/bulk-abstract-ingest-robot"
+site_author = "Tim Repke"
+site_description = "Boosting DESTinY abstract coverage from academic database exports, one reference at a time."
+site_name = "Bulk Abstract Ingest Robot"
+site_url = "https://www.example.com/"
 
-# extra_css = ["stylesheets/extra.css"]
-# extra_javascript = ["javascripts/extra.js"]
+[project.extra]
+polyfills = [
+    { async = false, defer = false, path = "assets/iframe-worker-shim.js", type = "text/javascript" },
+]
+
+[[project.extra.social]]
+icon = "fontawesome/brands/github"
+link = "https://github.com/destiny-evidence/bulk-abstract-ingest-robot"
+name = "GitHub"
+
+[[project.extra.social]]
+icon = "fontawesome/brands/gitlab"
+link = "https://gitlab.pik-potsdam.de/mcc-apsis/nacsos/academic-apis"
+name = "Academic APIs (GitLab, PIK)"
+
+[project.markdown_extensions]
+abbr = {}
+admonition = {}
+attr_list = {}
+def_list = {}
+footnotes = {}
+md_in_html = {}
+pymdownx.arithmatex.generic = true
+pymdownx.betterem = {}
+pymdownx.caret = {}
+pymdownx.details = {}
+# pymdownx.emoji.emoji_generator = "zensical.extensions.emoji.to_svg"
+# pymdownx.emoji.emoji_index = "zensical.extensions.emoji.twemoji"
+pymdownx.emoji.emoji_generator = "pymdownx.emoji.to_alt"
+pymdownx.emoji.emoji_index = "pymdownx.emoji.twemoji"
+pymdownx.highlight.anchor_linenums = true
+pymdownx.highlight.line_spans = "__span"
+pymdownx.highlight.pygments_lang_class = true
+pymdownx.inlinehilite = {}
+pymdownx.keys = {}
+pymdownx.magiclink = {}
+pymdownx.mark = {}
+pymdownx.smartsymbols = {}
+# pymdownx.snippets.base_path = "includes"
+pymdownx.superfences.custom_fences = [
+    { class = "mermaid", format = "pymdownx.superfences.fence_code_format", name = "mermaid" },
+]
+pymdownx.tabbed.alternate_style = true
+pymdownx.tabbed.combine_header_slug = true
+pymdownx.tasklist.custom_checkbox = true
+pymdownx.tilde = {}
+pymdownx.emoji.options.custom_icons = ["overrides/.icons"]
+toc.permalink = true
+
+[project.plugins.offline]
+enabled = true
 
 [project.theme]
-# variant = "classic"
-# custom_dir = "overrides"
-# favicon = "images/favicon.png"
-language = "en"
 features = [
     "announce.dismiss",
     # "content.action.edit",
@@ -46,8 +87,8 @@ features = [
     # "navigation.expand",
     "navigation.footer",
     "navigation.indexes",
-    #    "navigation.instant",
-    #    "navigation.instant.prefetch",
+    # "navigation.instant",
+    # "navigation.instant.prefetch",
     # "navigation.instant.progress",
     "navigation.path",
     # "navigation.prune",
@@ -60,17 +101,11 @@ features = [
     # "toc.follow",
     # "toc.integrate",
 ]
-
 font = false
-# logo = "assets/logo.png"
-
-# [project.theme.icon]
-# logo = "lucide/smile"
-
-# [project.theme.font]
-# text = "Inter"
-# code = "Jetbrains Mono"
-
+# variant = "classic"
+# custom_dir = "overrides"
+# favicon = "images/favicon.png"
+language = "en"
 
 [[project.theme.palette]]
 media = "(prefers-color-scheme)"
@@ -88,57 +123,3 @@ media = "(prefers-color-scheme: dark)"
 scheme = "slate"
 toggle.icon = "lucide/moon"
 toggle.name = "Switch to system preference"
-
-[[project.extra.social]]
-icon = "fontawesome/brands/github"
-link = "https://github.com/destiny-evidence/bulk-abstract-ingest-robot"
-name = "GitHub"
-
-[[project.extra.social]]
-icon = "fontawesome/brands/gitlab"
-link = "https://gitlab.pik-potsdam.de/mcc-apsis/nacsos/academic-apis"
-name = "Academic APIs (GitLab, PIK)"
-
-[project.markdown_extensions]
-abbr = { }
-admonition = { }
-attr_list = { }
-def_list = { }
-footnotes = { }
-md_in_html = { }
-toc.permalink = true
-pymdownx.arithmatex.generic = true
-pymdownx.betterem = { }
-pymdownx.caret = { }
-pymdownx.details = { }
-#pymdownx.emoji.emoji_generator = "zensical.extensions.emoji.to_svg"
-#pymdownx.emoji.emoji_index = "zensical.extensions.emoji.twemoji"
-pymdownx.emoji.emoji_generator = "pymdownx.emoji.to_alt"
-pymdownx.emoji.emoji_index = "pymdownx.emoji.twemoji"
-pymdownx.highlight.anchor_linenums = true
-pymdownx.highlight.line_spans = "__span"
-pymdownx.highlight.pygments_lang_class = true
-pymdownx.inlinehilite = { }
-pymdownx.keys = { }
-pymdownx.magiclink = { }
-pymdownx.mark = { }
-pymdownx.smartsymbols = { }
-# pymdownx.snippets.base_path = "includes"
-pymdownx.superfences.custom_fences = [
-    { name = "mermaid", class = "mermaid", format = "pymdownx.superfences.fence_code_format" },
-]
-pymdownx.tabbed.alternate_style = true
-pymdownx.tabbed.combine_header_slug = true
-pymdownx.tasklist.custom_checkbox = true
-pymdownx.tilde = { }
-
-pymdownx.emoji.options.custom_icons = ["overrides/.icons"]
-
-[project.plugins.offline]
-enabled = true
-
-[project.extra]
-
-polyfills = [
-    { path = "assets/iframe-worker-shim.js", type = "text/javascript", async = false, defer = false }
-]

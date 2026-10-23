@@ -8,7 +8,7 @@ This robot improves abstract coverage in the [DESTinY Open Search index](https:/
 - **Matches** cached records against the DESTinY repository by OpenAlex ID and checks that the match is plausible (publication year, title similarity).
 - **Submits** an `AbstractContentEnhancement` plus a `RawEnhancement` (the untouched source metadata) for every reference that passes the [enhancement rules](matching.md).
 
-## What it deliberately does *not* do
+## What it deliberately does _not_ do
 
 This is a **temporary measure** to improve coverage until the proper, full-fledged ingestion flow with deduplication and (partial) data fusion is in place. Accordingly, it intentionally avoids:
 
@@ -17,7 +17,7 @@ This is a **temporary measure** to improve coverage until the proper, full-fledg
 - heavy transformation — raw source data is stored as-is and parsed lazily, with a thin per-format parser.
 
 !!! warning "Temporary project"
-    This robot is meant to be deprecated once a complete ingestion pipeline with proper deduplication exists. Changes should be weighed against that end goal (see the discussion in [issue #7](https://github.com/destiny-evidence/bulk-abstract-ingest-robot/issues/7)).
+This robot is meant to be deprecated once a complete ingestion pipeline with proper deduplication exists. Changes should be weighed against that end goal (see the discussion in [issue #7](https://github.com/destiny-evidence/bulk-abstract-ingest-robot/issues/7)).
 
 ## The flow at a glance
 
@@ -70,7 +70,7 @@ Each runner runs its own endless loop and can be restarted at any time — all p
 
 ## Project structure
 
-```
+```plain
 run_robot.py            # Typer CLI entry point (tasks: match, enhance)
 app/
 ├── robots/             # The runners — one loop task per module
