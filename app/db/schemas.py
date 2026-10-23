@@ -150,6 +150,35 @@ class ODSRecord(RecordIdentifiers, _MultiBiblioMixin, _TrackingMixin):
     model_config = SQLModelConfig(validate_default=True, extra="ignore")
 
 
+class SearchIngest(SQLModel, table=True):
+    __tablename__ = "search_ingest"
+    ingest_id: UUID = Field(default_factory=uuid6, primary_key=True)
+    azure_link: str = Field(
+        nullable=False,
+        description="Link with auth key to result file in azure blob storage",
+    )
+    is_queueing: bool = Field(
+        default=False,
+        nullable=False,
+        description="Status on transfer to ingestion queue (started transfer file to queue)",
+    )
+    is_queued: bool = Field(
+        default=False,
+        nullable=False,
+        description="Status on transfer to ingestion queue (completed transfer file to queue)",
+    )
+    checkpoint_bytes: int | None = Field(
+        default=None,
+        nullable=True,
+        description="Offset in bytes from the latest commit to the queue (restart from here on failure)",
+    )
+    checkpoint_rows: int | None = Field(
+        default=None,
+        nullable=True,
+        description="Number of lines read from the latest commit to the queue",
+    )
+
+
 __all__ = [
     "DOI",
     "Format",
@@ -159,5 +188,6 @@ __all__ = [
     "ParsedRecordExtra",
     "Record",
     "RecordIdentifiers",
+    "SearchIngest",
     "Source",
 ]

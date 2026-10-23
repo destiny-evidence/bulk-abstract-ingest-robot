@@ -5,9 +5,9 @@ from collections.abc import AsyncGenerator
 
 from azure.storage.blob.aio import BlobClient
 
+from app.db.ingest import IngestTracker
 from app.db.schemas import Format, Record
 from app.util import Runner, get_settings
-from app.util.api_sdk import exclusive_transfer_request, log_checkpoint, mark_queued
 
 settings = get_settings()
 
@@ -48,15 +48,15 @@ class IngestionQueueRunner(Runner):
     """Runner for transferring raw source data to ingestion queue."""
 
     async def _loop_task(self) -> None:
+        tracking = IngestTracker(settings=self.settings, logger=self.loop_logger.getChild("tracking-db"))
         num_rows = 0
         async with (
-            exclusive_transfer_request() as request,
+            tracking.exclusive_transfer_request() as request,
             self.store.db.session() as session,
         ):
             self.loop_logger.info(
                 f"Received lock on transfer request ("
                 f"id={request.ingest_id} "
-                f"| query={request.query_id} "
                 f"| is_queueing={request.is_queueing} "
                 f"| is_queued={request.is_queued} "
                 f"| checkpoint_bytes={request.checkpoint_bytes} "
@@ -83,15 +83,15 @@ class IngestionQueueRunner(Runner):
                     # commit latest additions to database
                     await session.commit()
                     # send checkpoint to API wrapper tool for tracking in case of crash and UI feedback
-                    await log_checkpoint(
+                    await tracking.log_checkpoint(
                         ingest_id=request.ingest_id,
                         checkpoint_bytes=offset,
                         checkpoint_rows=num_rows + (request.checkpoint_rows or 0),
                     )
                     self.loop_logger.info(
-                        f"[Transfer {request.ingest_id} for query {request.query_id}] Transferred {num_rows:,} rows to queue at byte {offset:,}.",
+                        f"[Transfer {request.ingest_id}] Transferred {num_rows:,} rows to queue at byte {offset:,}.",
                     )
 
-        await mark_queued(ingest_id=request.ingest_id)
+        await tracking.mark_queued(ingest_id=request.ingest_id)
 
         self.loop_logger.info(f"[Total: {self.total_entries_processed:,} entries] Transferred {num_rows:,} rows to queue.")
