@@ -13,8 +13,8 @@ Three small runner processes work through the pipeline, coordinating only via a 
 3. **Enhance runner** — picks up repository-approved batches and submits the abstract (plus the untouched raw metadata) as enhancements.
 
 ```plain
-academic database export ──▶ blob storage ──▶ [queue] ──▶ Postgres cache ──▶ [match] ──▶ DESTinY repository
-                                                                    [enhance] ◀── approved batches ◀──┘
+academic database export   ──▶   blob storage  ──▶ [queue]  ──▶  Postgres cache 
+         [enhance] ◀── approved batches ◀── DESTinY repository ◀── [match] ◀──┘
 ```
 
 ## Documentation

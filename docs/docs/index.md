@@ -10,25 +10,30 @@ This robot improves abstract coverage in the [DESTinY Open Search index](https:/
 
 ## What it deliberately does _not_ do
 
-This is a **temporary measure** to improve coverage until the proper, full-fledged ingestion flow with deduplication and (partial) data fusion is in place. Accordingly, it intentionally avoids:
+This is a **temporary measure** to improve coverage until the proper, full-fledged ingestion flow with deduplication and (partial) data fusion is in place. Accordingly, there are intentional decisions:
 
-- full deduplication or data fusion — records are matched by identifier only,
-- creating new references in the index — existing references are only enhanced,
-- heavy transformation — raw source data is stored as-is and parsed lazily, with a thin per-format parser.
+- _no_ full deduplication — records are matched by identifier (DOI) only,
+- _no_ creating new references (canonicals) in the index — existing references are only enhanced,
+- _no_ heavy transformation — raw source data is stored as-is and parsed lazily, with a thin per-format parser,
+- _no_ data fusion — new metadata is not merged and existing values are not replaces by picking the "better" one.
 
 !!! warning "Temporary project"
-This robot is meant to be deprecated once a complete ingestion pipeline with proper deduplication exists. Changes should be weighed against that end goal (see the discussion in [issue #7](https://github.com/destiny-evidence/bulk-abstract-ingest-robot/issues/7)).
+This robot is meant to be deprecated once a complete ingestion pipeline with proper deduplication exists. 
+Changes should be weighed against that end goal (see the discussion in [issue #7](https://github.com/destiny-evidence/bulk-abstract-ingest-robot/issues/7)).
 
 ## The flow at a glance
 
 Three small runner processes work through the pipeline, communicating only via the Postgres database and the repository:
 
 ```mermaid
-flowchart LR
+flowchart TD
     subgraph source["Source"]
         API["Academic API Importer"]
         BLOB[("Azure blob<br/>storage<br/><i>JSONL export</i>")]
-        API -->|"upload result file"| BLOB
+    end
+
+    subgraph ods["DESTinY repository"]
+        REPO["References &<br/>enhancement batches"]
     end
 
     subgraph cache["Metadata cache (Postgres)"]
@@ -42,20 +47,16 @@ flowchart LR
         ENHANCE["Enhance runner<br/><code>enhance.py</code>"]
     end
 
-    subgraph ods["DESTinY repository"]
-        LOOKUP["Reference lookup &<br/>enhancement requests"]
-        APPROVED["Approved enhancement<br/>batches"]
-    end
-
-    INGEST -.->|"transfer request<br/>(SAS link)"| QUEUE
+    API -->|"upload result file"| BLOB
     BLOB -->|"stream JSONL"| QUEUE
+    INGEST -.->|"transfer request<br/>(SAS link)"| QUEUE
     QUEUE -->|"store raw records"| RECORDS
-    MATCH -->|"lookup by OpenAlex ID,<br/>request enhancements"| LOOKUP
     RECORDS -->|"unevaluated batch"| MATCH
-    LOOKUP --> APPROVED
-    APPROVED -->|"poll approved batch"| ENHANCE
-    ENHANCE -->|"submit abstract +<br/>raw enhancements"| APPROVED
     RECORDS -->|"eligible records"| ENHANCE
+    %% MATCH -->|"log eligibility"| RECORDS
+    MATCH -->|"lookup by OpenAlex ID,<br/>request enhancements"| REPO
+    REPO -->|"approved batches"| ENHANCE
+    ENHANCE -->|"submit abstract +<br/>raw enhancements"| REPO
 ```
 
 Each runner runs its own endless loop and can be restarted at any time — all progress is tracked in the database. The individual steps are explained in [Architecture](architecture.md).
