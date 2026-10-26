@@ -19,11 +19,11 @@ repos:
     hooks:
       - id: mypy
         name: mypy
-        entry: uv run mypy
+        entry: uv run mypy --config-file=pyproject.toml
         language: system
         types: [python]
         # Pass files directly or let mypy use its configured paths
-        pass_filenames: true
+        pass_filenames: false
       - id: ruff-check
         name: ruff check
         entry: uv run ruff check --fix --config=pyproject.toml .

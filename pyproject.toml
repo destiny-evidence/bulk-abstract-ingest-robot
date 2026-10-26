@@ -44,11 +44,16 @@ version = "0.3.0"
 [tool.mypy]
 # for strict mypy: (this is the tricky one :-))
 disallow_untyped_defs = true
-exclude = ["tests/"]
+exclude = []
 explicit_package_bases = true
 files = ['app']
 plugins = ["pydantic.mypy"]
 strict = true
+
+[[tool.mypy.overrides]]
+disallow_untyped_calls = false
+disallow_untyped_defs = false
+module = "tests.*"
 
 [tool.pytest.ini_options]
 addopts = ["--color=yes", "--import-mode=importlib", "--verbose"]

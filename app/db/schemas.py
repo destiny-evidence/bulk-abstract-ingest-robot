@@ -120,7 +120,9 @@ class ParsedRecord(RecordIdentifiers, _BiblioMixin, _TrackingMixin):
                 "scopus_id": record.scopus_id or scopus_id,
                 "doi": record.doi or doi,
                 "source": Source.SCOPUS,
-                **record.model_dump(exclude_defaults=True, exclude={"scopus_id", "doi"}),
+                **record.model_dump(
+                    exclude_defaults=True, exclude={"scopus_id", "doi", "format", "raw"}
+                ),  # `format` and `raw` are set by `ParsedRecordExtra.from_record` separately
             }
 
         raise NotImplementedError(f"No parser for format {record.format}")
