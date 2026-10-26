@@ -165,7 +165,8 @@ class TestTitleMatching:
         # case, punctuation, digits and spacing differences are stripped before comparison
         assert (
             runner.should_enhance(
-                cache_entry(title="CLIMATE CHANGE ADAPTATION, IN URBAN AREAS — A REVIEW OF 14 CITIES: 2005–2023?! WHAT WORKS!!"), ods_reference(titles=[TITLE]),
+                cache_entry(title="CLIMATE CHANGE ADAPTATION, IN URBAN AREAS — A REVIEW OF 14 CITIES: 2005–2023?! WHAT WORKS!!"),
+                ods_reference(titles=[TITLE]),
             )
             is True
         )

@@ -69,7 +69,12 @@ def flatten_reference(reference: Reference) -> ODSRecord:  # noqa: PLR0912
 
 
 class Repository:
-    """Utility class for interacting with the repository."""
+    """
+    Utility class for interacting with the repository.
+
+    - API Documentation: https://api.evidence-repository.org/docs
+    - OpenAPI specification: https://api.evidence-repository.org/openapi.json
+    """
 
     def __init__(self, settings: Settings, logger: logging.Logger) -> None:
         """Initialise the repository utils."""

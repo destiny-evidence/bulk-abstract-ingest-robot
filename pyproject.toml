@@ -44,7 +44,7 @@ version = "0.3.0"
 [tool.mypy]
 # for strict mypy: (this is the tricky one :-))
 disallow_untyped_defs = true
-exclude = []
+exclude = ["tests/"]
 explicit_package_bases = true
 files = ['app']
 plugins = ["pydantic.mypy"]
