@@ -6,31 +6,40 @@ permissions:
   pull-requests: write
 
 on:
-    pull_request:
-        types:
-            - opened
-            - reopened
-            - synchronize
-            - closed
+  pull_request:
+    types:
+      - opened
+      - reopened
+      - synchronize
+      - closed
 
 concurrency: preview-${{ github.ref }}
 
 jobs:
-    deploy-preview:
-        runs-on: ubuntu-latest
-        steps:
-            - name: Checkout
-              uses: actions/checkout@v4
+  deploy-preview:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
-            - name: Install and Build
-              if: github.event.action != 'closed' # We don't need the build if we know the preview will be removed
-              run: |
-                  npm install
-                  npm run build
+      - name: Set up Python
+        if: github.event.action != 'closed'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
 
-            - name: Deploy preview
-              uses: rossjrw/pr-preview-action@v1
-              with:
-                  source-dir: ./build/
-                  preview-branch: gh-pages
-                  qr-code: true
+      - name: Install uv
+        if: github.event.action != 'closed'
+        uses: astral-sh/setup-uv@v5
+
+      - name: Build documentation
+        if: github.event.action != 'closed'
+        run: |
+          uv run zensical build --config-file docs/zensical.toml
+
+      - name: Deploy preview
+        uses: rossjrw/pr-preview-action@v1
+        with:
+          source-dir: ./docs/site/
+          preview-branch: gh-pages
+          qr-code: true
