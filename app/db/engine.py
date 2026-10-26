@@ -5,7 +5,7 @@ import logging
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from datetime import datetime
-from enum import Enum, StrEnum
+from enum import Enum, StrEnum, auto
 from functools import lru_cache
 from json import JSONEncoder
 from pathlib import Path
@@ -22,6 +22,11 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from ..util.config import Settings, get_settings
 
 logger = logging.getLogger("ingest-robot.db")
+
+
+class Persist(Enum):
+    COMMIT = auto()
+    FLUSH = auto()
 
 
 class DictLikeEncoder(JSONEncoder):
@@ -46,6 +51,15 @@ class DictLikeEncoder(JSONEncoder):
         if isinstance(o, StrEnum):
             return o.value
         return json.JSONEncoder.default(self, o)
+
+
+class ExtendedAsyncSession(AsyncSession):
+    async def flush_or_commit(self, persist: Persist) -> None:
+        """Commits and refreshes entities if commit is True, otherwise flushes to DB."""
+        if persist == Persist.COMMIT:
+            await self.commit()
+        else:
+            await self.flush()
 
 
 class DatabaseEngine:
@@ -94,15 +108,20 @@ class DatabaseEngine:
             logger.exception(e)
 
     @asynccontextmanager
-    async def session(self) -> AsyncGenerator[AsyncSession]:
-        session = AsyncSession(bind=self.engine, **self.kw_session)
-        try:
-            yield session
-        except Exception:
-            await session.rollback()
-            raise
-        finally:
-            await session.close()
+    async def session(self, existing_session: ExtendedAsyncSession | None = None) -> AsyncGenerator[ExtendedAsyncSession]:
+        if existing_session is not None:
+            # Re-use the outer session; do not close or rollback here (parent owns lifecycle)
+            yield existing_session
+        else:
+            # Standard lifecycle for self-managed sessions
+            session = ExtendedAsyncSession(bind=self.engine, **self.kw_session)
+            try:
+                yield session
+            except Exception:
+                await session.rollback()
+                raise
+            finally:
+                await session.close()
 
     @asynccontextmanager
     async def connection(self) -> AsyncGenerator[AsyncConnection]:

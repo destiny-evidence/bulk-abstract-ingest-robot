@@ -5,9 +5,10 @@ from collections.abc import AsyncGenerator
 
 from azure.storage.blob.aio import BlobClient
 
+from app.db.engine import Persist
 from app.db.ingest import IngestTracker
 from app.db.schemas import Format, Record
-from app.util import Runner, get_settings
+from app.util import Runner, async_batched, get_settings
 
 settings = get_settings()
 
@@ -50,6 +51,7 @@ class IngestionQueueRunner(Runner):
     async def _loop_task(self) -> None:
         tracking = IngestTracker(settings=self.settings, logger=self.loop_logger.getChild("tracking-db"))
         num_rows = 0
+        latest_offset = 0
         async with (
             tracking.exclusive_transfer_request() as request,
             self.store.db.session() as session,
@@ -62,35 +64,43 @@ class IngestionQueueRunner(Runner):
                 f"| checkpoint_bytes={request.checkpoint_bytes} "
                 f"| checkpoint_rows={request.checkpoint_rows})",
             )
-            async for line, offset in _read_from_blob_storage(sas_url=request.azure_link, byte_offset=request.checkpoint_bytes or 0):
-                self.total_entries_processed += 1
-                num_rows += 1
-                session.add(
-                    Record(
-                        format=Format.SCOPUS_API,  # TODO: adapt the format to the actual one
-                        raw=json.loads(line),
-                        openalex_id=None,
-                        doi=None,
-                        wos_id=None,
-                        scopus_id=None,
-                        s2_id=None,
-                        pubmed_id=None,
-                        dimensions_id=None,
-                    ),
-                )
 
-                if (num_rows % settings.api_wrapper_checkpoint_interval) == 0:
-                    # commit latest additions to database
-                    await session.commit()
-                    # send checkpoint to API wrapper tool for tracking in case of crash and UI feedback
-                    await tracking.log_checkpoint(
-                        ingest_id=request.ingest_id,
-                        checkpoint_bytes=offset,
-                        checkpoint_rows=num_rows + (request.checkpoint_rows or 0),
+            async for batch in async_batched(
+                _read_from_blob_storage(sas_url=request.azure_link, byte_offset=request.checkpoint_bytes or 0),
+                batch_size=settings.api_wrapper_checkpoint_interval,
+            ):
+                for line, offset in batch:
+                    self.total_entries_processed += 1
+                    num_rows += 1
+                    latest_offset = offset
+                    session.add(
+                        Record(
+                            format=Format.SCOPUS_API,  # TODO: adapt the format to the actual one
+                            raw=json.loads(line),
+                            openalex_id=None,
+                            doi=None,
+                            wos_id=None,
+                            scopus_id=None,
+                            s2_id=None,
+                            pubmed_id=None,
+                            dimensions_id=None,
+                        ),
                     )
-                    self.loop_logger.info(
-                        f"[Transfer {request.ingest_id}] Transferred {num_rows:,} rows to queue at byte {offset:,}.",
-                    )
+
+                # Log checkpoint so we can recover in case of a crash
+                await tracking.log_checkpoint(
+                    ingest_id=request.ingest_id,
+                    checkpoint_bytes=latest_offset,
+                    checkpoint_rows=num_rows + (request.checkpoint_rows or 0),
+                    session=session,
+                    commit=Persist.FLUSH,
+                )
+                # commit latest additions to database
+                await session.commit()
+
+                self.loop_logger.info(
+                    f"[Transfer {request.ingest_id}] Transferred {num_rows:,} rows to queue at byte {latest_offset:,}.",
+                )
 
         await tracking.mark_queued(ingest_id=request.ingest_id)
 

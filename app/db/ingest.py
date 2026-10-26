@@ -9,7 +9,7 @@ from filelock import AsyncFileLock, Timeout
 from sqlmodel import desc, select
 
 from ..util.config import Settings
-from .engine import DatabaseEngine
+from .engine import DatabaseEngine, ExtendedAsyncSession, Persist
 from .schemas import SearchIngest
 
 
@@ -90,9 +90,11 @@ class IngestTracker:
         ingest_id: str | UUID,
         checkpoint_bytes: int,
         checkpoint_rows: int,
+        session: ExtendedAsyncSession | None = None,
+        commit: Persist = Persist.COMMIT,
     ) -> SearchIngest:
-        async with self.db.session() as session:
-            ingest = await session.get(SearchIngest, ingest_id)
+        async with self.db.session(session) as _session:
+            ingest = await _session.get(SearchIngest, ingest_id)
             if ingest is None:
                 raise AssertionError(f"No info found for ingest_id={ingest_id}")
 
@@ -101,8 +103,8 @@ class IngestTracker:
 
             ingest.checkpoint_bytes = checkpoint_bytes
             ingest.checkpoint_rows = checkpoint_rows
-            await session.commit()
-            await session.refresh(ingest)
+            await _session.flush_or_commit(commit)
+            await _session.refresh(ingest)
             return ingest
 
     async def add_ingest(
