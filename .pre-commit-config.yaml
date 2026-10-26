@@ -34,6 +34,11 @@ repos:
         entry: uv run ruff format --config=pyproject.toml .
         language: system
         pass_filenames: false
+      - id: pytest
+        name: pytest
+        entry: uv run pytest
+        language: system
+        pass_filenames: false
   - repo: https://github.com/Lucas-C/pre-commit-hooks
     rev: v1.5.6
     hooks:

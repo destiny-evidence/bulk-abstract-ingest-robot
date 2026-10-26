@@ -10,6 +10,10 @@ from tests.util.fixtures import (  # noqa: E402, F401, RUF100
     db,
     enhance_runner,
     match_runner,
+    queue_blob,
+    queue_ingest,
+    queue_runner,
+    queue_tracker,
     runner_factory,
     settings,
 )

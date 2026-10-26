@@ -7,12 +7,17 @@ Texts are sized and shaped to exercise the matching thresholds in `app/robots/ma
 """
 
 import itertools
+import json
+from functools import lru_cache
+from pathlib import Path
 from uuid import UUID
 
 from app.db.schemas import ODSRecord, ParsedRecord
 
 DESTINY_ID = UUID("11111111-1111-1111-1111-111111111111")
 OTHER_ID = UUID("22222222-2222-2222-2222-222222222222")
+
+SAS_URL = "https://wrapper.blob.core.windows.net/exports/scopus-results.jsonl?sv=2025-11-03&se=2026-11-01&sp=r&sig=FAKEdummy"
 
 DEFAULT_TITLE = "Governance pathways for coastal flood adaptation in 12 port cities"
 TITLE = "Climate-change adaptation in urban areas: a review of 42 cities (2005–2023) — what works?!"
@@ -40,6 +45,34 @@ DEFAULT_ABSTRACT = (
     "We compare flood adaptation governance across 12 port cities (2010–2024) using 96 policy documents and 41 interviews. Financing mode, not hazard exposure, best explains "
     "implementation speed; centrally funded plans deliver 2.3x faster. We recommend pooling municipal risk bonds — median coverage rises from 34% to 71% in our simulations."
 )
+
+SAS_URL = "https://wrapper.blob.core.windows.net/exports/scopus-results.jsonl?sv=2025-11-03&se=2026-11-01&sp=r&sig=FAKEdummy"
+
+# An abstract carrying every kind of line break the JSON can escape, plus a literal backslash-n that
+# a naive line detector might mistake for the start of an escape sequence.
+MULTILINE_ABSTRACT = (
+    "Background: Urban heat exposure is rising across 42 coastal cities.\n"
+    "\n"
+    "Methods: Governance, finance, and health outcomes were scored — including a literal backslash-n in the text: \\n.\r\n"
+    "Results: Median risk reduction 23% (IQR: 11–37%).\n"
+    "Conclusion: Early-warning systems save lives; funding gaps remain."
+)
+
+
+def stub(i: int) -> dict:
+    """A minimal Scopus-shaped record; every stub line serialises to exactly the same byte length (fixed-width numbers)."""
+    return {"eid": f"2-s2.0-{9_000_000_000 + i}", "dc:title": f"Coastal flood adaptation pathway {i:04d}", "prism:coverDate": "2024-06-01"}
+
+
+def stub_line(i: int) -> bytes:
+    return (json.dumps(stub(i)) + "\n").encode()
+
+
+def stub_jsonl(first: int = 1, count: int = 1) -> bytes:
+    return b"".join(stub_line(i) for i in range(first, first + count))
+
+
+STUB_LINE_BYTES = len(stub_line(1))
 
 
 def words_with_letters(count: int) -> str:
@@ -115,3 +148,25 @@ def abstracts_for(kind: str, slop: int) -> list[str] | None:
         "multi_all_beyond_threshold": [*UNRELATED_ABSTRACTS, far, far_away],
         "multi_all_three_thresholds": [far, UNRELATED_ABSTRACTS[1], near],
     }[kind]
+
+
+# Real Scopus API export (JSON lines), sliced from a genuine response. One abstract record per line, with raw multi-byte characters,
+# so line lengths vary wildly and multi-byte codepoints straddle block boundaries.
+SCOPUS_SAMPLE_PATH = Path(__file__).parent / "data" / "scopus_api_sample.jsonl"
+
+
+@lru_cache(maxsize=1)
+def scopus_sample_lines() -> list[bytes]:
+    """The sample file split into individual JSON lines (newlines stripped, no trailing blank)."""
+    return SCOPUS_SAMPLE_PATH.read_bytes().splitlines()
+
+
+def scopus_sample_jsonl(count: int | None = None) -> bytes:
+    """The sample (or its first `count` records) as newline-terminated JSONL bytes, exactly as the blob would serve them."""
+    lines = scopus_sample_lines()
+    return b"".join(line + b"\n" for line in (lines if count is None else lines[:count]))
+
+
+def scopus_record(index: int = 0) -> dict:
+    """Parse one record of the sample by index (used to build tampered variants)."""
+    return json.loads(scopus_sample_lines()[index])

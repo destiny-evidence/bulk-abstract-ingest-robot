@@ -4,7 +4,8 @@ Shared fixtures: settings, the mock database, and generic runner construction.
 `runner_factory` builds any `Runner` subclass with a bypassed `__init__` (no settings/logging/DB/auth
 clients), the store of your choice, and a spec-ed mock repository — `MagicMock(spec=Repository)` turns
 the async API methods into awaitable `AsyncMock`s automatically, so no per-method mock wiring is needed.
-The per-runner fixtures below just say which runner class and which store flavour a test wants.
+The per-runner fixtures below just say which runner class, which store flavour, and which extra test
+doubles (the queue runner's blob and tracking database) a test wants.
 """
 
 import asyncio
@@ -14,13 +15,17 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
+from app.db.schemas import SearchIngest
 from app.robots.enhance import EnhancementRunner
 from app.robots.match import MatchRunner
+from app.robots.queue import IngestionQueueRunner
 from app.util.config import Settings
 from app.util.repository import Repository
 from app.util.runner import Runner
 
-from .fake_database import MockDatabase, MockStore
+from .fake_blob import FakeBlobStorage, fake_blob_client
+from .fake_data import SAS_URL
+from .fake_database import MockDatabase, MockIngestTracker, MockStore
 
 R = TypeVar("R", bound=Runner)
 
@@ -65,3 +70,30 @@ def enhance_runner(runner_factory, db: MockDatabase) -> EnhancementRunner:
     runner: EnhancementRunner = runner_factory(EnhancementRunner, store=MockStore(db))
     runner.repository.get_next_batch.return_value = (None, None)  # the repository offers no batch until a test says otherwise
     return runner
+
+
+@pytest.fixture
+def queue_blob() -> FakeBlobStorage:
+    """The blob behind the transfer request; tests hand it its bytes and block behaviour before running the runner."""
+    return FakeBlobStorage(b"")  # an empty result file until a test says otherwise
+
+
+@pytest.fixture
+def queue_ingest() -> SearchIngest:
+    """An open transfer request no process has picked up yet."""
+    return SearchIngest(azure_link=SAS_URL)
+
+
+@pytest.fixture
+def queue_tracker(queue_ingest: SearchIngest) -> MockIngestTracker:
+    """Tracking double for the one request the runner will find; its state machine plays out in `.trace`."""
+    return MockIngestTracker(queue_ingest)
+
+
+@pytest.fixture
+def queue_runner(runner_factory, settings, monkeypatch, queue_blob, db, queue_tracker) -> IngestionQueueRunner:
+    """IngestionQueueRunner talking to the blob and tracking doubles above instead of Azure and the tracking DB."""
+    monkeypatch.setattr("app.robots.queue.settings", settings)  # the checkpoint interval is read off the module-level settings
+    monkeypatch.setattr("app.robots.queue.BlobClient", fake_blob_client(queue_blob))
+    monkeypatch.setattr("app.robots.queue.IngestTracker", MagicMock(return_value=queue_tracker))  # the runner instantiates its tracker inside _loop_task
+    return runner_factory(IngestionQueueRunner, store=MockStore(db))
