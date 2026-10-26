@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+      <url>
+        <loc>https://www.example.com/architecture.html</loc>
+      </url>
+      <url>
+        <loc>https://www.example.com/configuration.html</loc>
+      </url>
+      <url>
+        <loc>https://www.example.com/data-model.html</loc>
+      </url>
+      <url>
+        <loc>https://www.example.com/development.html</loc>
+      </url>
+      <url>
+        <loc>https://www.example.com/index.html</loc>
+      </url>
+      <url>
+        <loc>https://www.example.com/matching.html</loc>
+      </url>
+</urlset>
