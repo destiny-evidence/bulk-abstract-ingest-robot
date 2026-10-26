@@ -44,7 +44,7 @@ class MatchRunner(Runner):
 
         if cache_entry.abstract is not None and reference.abstracts is not None and len(cache_entry.abstract) > self.settings.min_abstract_length:
             cached_abstract = ALPH.sub("", cache_entry.abstract.lower())
-            if not any(
+            if any(
                 (
                     abstract is not None
                     and len(abstract) > self.settings.min_abstract_length

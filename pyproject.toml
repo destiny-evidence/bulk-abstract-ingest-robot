@@ -22,9 +22,9 @@ dependencies = [
     # "academic-apis",
     "aiofiles~=25.1.0",
     "azure-storage-blob~=12.31",
-    "destiny-sdk~=0.16.0",
+    "destiny-sdk~=0.17.4",
     "greenlet~=3.5.6",
-    "httpx>=0.28.1,<0.29",
+    "httpx2~=2.16.0",
     "opentelemetry-distro~=0.57b0",
     "opentelemetry-exporter-otlp~=1.42.1",
     "opentelemetry-instrumentation-httpx~=0.57b0",
@@ -111,10 +111,14 @@ lint.ignore = [
 lint.mccabe.max-complexity = 18
 lint.pep8-naming.classmethod-decorators = ["classmethod"]
 lint.per-file-ignores = { "tests*" = [
+    "ANN001", # No type annotation for arguments. It's always obvious from the fixture.
+    "ANN003", # No type annotation for **kwargs. It's always obvious from the fixture.
     "ANN201", # No return type annotation. It's always None for tests.
     "INP001", # File is part of an implicit namespace package.
     "PLR2004", # Magic value used in comparison
+    "RUF001", # Ambiguous unicode characters (i.e. the en dashes) are intentional in realistic test texts
     "S101", # Use of `assert` detected
+    "SLF001", # Tests may call private members (i.e. the runner's `_loop_task`)
 ] }
 lint.select = ["ALL"]
 target-version = "py314"

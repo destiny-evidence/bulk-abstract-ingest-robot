@@ -18,7 +18,7 @@ This is a **temporary measure** to improve coverage until the proper, full-fledg
 - _no_ data fusion — new metadata is not merged and existing values are not replaces by picking the "better" one.
 
 !!! warning "Temporary project"
-This robot is meant to be deprecated once a complete ingestion pipeline with proper deduplication exists. 
+This robot is meant to be deprecated once a complete ingestion pipeline with proper deduplication exists.
 Changes should be weighed against that end goal (see the discussion in [issue #7](https://github.com/destiny-evidence/bulk-abstract-ingest-robot/issues/7)).
 
 ## The flow at a glance

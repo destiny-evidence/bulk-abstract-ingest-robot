@@ -8,7 +8,6 @@ import sys
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING
 
-from ..db.store import AbstractStore
 from .config import get_settings
 from .logging import init_logging
 from .repository import Repository
@@ -31,6 +30,8 @@ class Runner(ABC):
         self.total_entries_processed = 0
 
         self.repository = Repository(settings=self.settings, logger=logger.getChild("repository"))
+        from ..db.store import AbstractStore  # deferred to avoid circular import at module load time
+
         self.store = AbstractStore(
             settings=self.settings,
             logger=logger.getChild("store"),
