@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Annotated
 import typer
 
 from .db.engine import get_engine
-from .robots import EnhancementRunner, MatchRunner
+from .robots import EnhancementRunner, MatchRunner, IngestionQueueRunner
 from .util import get_settings, init_logging
 
 if TYPE_CHECKING:
@@ -20,7 +20,7 @@ class RunnerTask(str, Enum):
 
     enhance = "enhance"
     match = "match"
-    load = "load"
+    queue = "queue"
 
 
 def main(
@@ -40,6 +40,9 @@ def main(
     elif task == RunnerTask.match:
         SelectedRunner = MatchRunner  # noqa: N806
         loop_interval = settings.match_interval_seconds
+    elif task == RunnerTask.queue:
+        SelectedRunner = IngestionQueueRunner  # noqa: N806
+        loop_interval = settings.queue_interval_seconds
     else:
         raise ValueError(f"Unknown runner type: {task}")
 
