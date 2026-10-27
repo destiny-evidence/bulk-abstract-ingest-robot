@@ -26,7 +26,7 @@ jobs:
         if: github.event.action != 'closed'
         uses: actions/setup-python@v5
         with:
-          python-version: '3.14'
+          python-version: "3.14"
 
       - name: Install uv
         if: github.event.action != 'closed'
