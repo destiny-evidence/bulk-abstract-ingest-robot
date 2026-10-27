@@ -7,7 +7,7 @@ updates:
     directories:
       - "/"
     schedule:
-      interval: "weekly"
+      interval: "monthly"
     cooldown:
       default-days: 5
       semver-major-days: 30
