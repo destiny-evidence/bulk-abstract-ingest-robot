@@ -5,8 +5,7 @@ version: 2
 updates:
   - package-ecosystem: "uv"
     directories:
-      - "/refresh_requester"
-      - "/openalex_incremental_updater"
+      - "/"
     schedule:
       interval: "weekly"
     cooldown:
