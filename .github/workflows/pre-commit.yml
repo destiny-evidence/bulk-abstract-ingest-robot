@@ -17,5 +17,8 @@ jobs:
         with:
           python-version: '3.14'
 
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
       - name: Run pre-commit hooks
         uses: pre-commit/action@v3.0.1
