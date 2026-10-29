@@ -32,6 +32,14 @@ docker compose --env-file .config/.env.secret up --build
 
 # In case docker is not picking up configured variables, this helps in debugging:
 docker compose --env-file .config/.env.secret config
+
+# Run individual services
+docker compose --env-file .config/.env.secret up postgres
+docker compose --env-file .config/.env.secret up monitoring
+docker compose --env-file .config/.env.secret up sql-cron
+docker compose --env-file .config/.env.secret up queue
+docker compose --env-file .config/.env.secret up match
+docker compose --env-file .config/.env.secret up enhance
 ```
 
 Run documentation locally:

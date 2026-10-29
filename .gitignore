@@ -186,3 +186,4 @@ cython_debug/
 !.config/.env.example
 /docs/site/
 .data/
+monitoring/
