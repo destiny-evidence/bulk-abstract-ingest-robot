@@ -65,7 +65,6 @@ class MatchRunner(Runner):
 
         if len(cache_entries) == 0:
             self.loop_logger.info("No unprocessed cache entries found.")
-            await self.stop()
             return
 
         # Query repository for reference entries
