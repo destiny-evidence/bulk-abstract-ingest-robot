@@ -26,6 +26,19 @@ FROM monitoring
 WHERE timestamp < now() - INTERVAL '7 days'
   AND type = 'orig';
 
+-- Drop from monitoring table; keep last 10,000 entries
+WITH ranked_rows AS (
+    SELECT ctid,
+           ROW_NUMBER() OVER (ORDER BY timestamp DESC ) AS rn
+    FROM monitoring
+)
+DELETE FROM monitoring
+WHERE ctid IN (
+    SELECT ctid
+    FROM ranked_rows
+    WHERE rn > 10000
+);
+
 -- Delete records that are older and already submitted or will never be submitted
 DELETE
 FROM records
