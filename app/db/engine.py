@@ -114,7 +114,7 @@ class DatabaseEngine:
             yield existing_session
         else:
             # Standard lifecycle for self-managed sessions
-            session = ExtendedAsyncSession(bind=self.engine, **self.kw_session)
+            session = ExtendedAsyncSession(**self.kw_session)
             try:
                 yield session
             except Exception:

@@ -56,6 +56,10 @@ class IngestionQueueRunner(Runner):
             tracking.exclusive_transfer_request() as request,
             self.store.db.session() as session,
         ):
+            if request is None:
+                self.loop_logger.info("Found no open transfer request")
+                return
+
             self.loop_logger.info(
                 f"Received lock on transfer request ("
                 f"id={request.ingest_id} "

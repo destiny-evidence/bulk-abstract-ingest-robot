@@ -1,0 +1,11 @@
+# Include list: ship only the files the image actually needs
+*
+
+!Dockerfile
+!pyproject.toml
+!uv.lock
+!run_robot.py
+!app
+!app/**
+!.config
+!.config/**

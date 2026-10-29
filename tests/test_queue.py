@@ -12,7 +12,10 @@ back from `queue_tracker.trace` and committed rows from `db.records`. Payloads a
 
 import asyncio
 import json
+from collections.abc import AsyncGenerator
+from contextlib import asynccontextmanager
 from itertools import accumulate
+from unittest.mock import MagicMock
 
 import pytest
 from azure.core.exceptions import ServiceResponseError
@@ -180,6 +183,25 @@ class TestTransfer:
             ("checkpoint", True, False, 9 * STUB_LINE_BYTES, 106),
             ("queued", True, True, 9 * STUB_LINE_BYTES, 106),
         ]
+
+    def test_idles_quietly_when_no_request_is_available(self, queue_runner, queue_blob, db, monkeypatch):
+        # no open request (or every candidate locked by another process) must idle the loop,
+        # not crash it with RuntimeError("generator didn't yield")
+        @asynccontextmanager
+        async def no_request() -> AsyncGenerator[None]:
+            # mirrors the real tracker's for-else: nothing open, or every candidate locked elsewhere
+            yield None
+
+        tracker = MagicMock()
+        tracker.exclusive_transfer_request = no_request
+        monkeypatch.setattr("app.robots.queue.IngestTracker", MagicMock(return_value=tracker))
+        queue_blob.data = stub_jsonl(count=3)  # bytes exist, but nobody may queue them
+
+        asyncio.run(queue_runner._loop_task())
+
+        assert db.records == []
+        assert queue_blob.requests == []  # the blob is never even opened
+        assert queue_runner.total_entries_processed == 0
 
     def test_empty_blob_is_queued_without_checkpoints(self, queue_runner, queue_blob, db, queue_tracker, settings):
         queue_blob.empty_blocks = True

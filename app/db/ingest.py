@@ -143,7 +143,7 @@ class IngestTracker:
             return True  # Another process is holding it
 
     @asynccontextmanager
-    async def exclusive_transfer_request(self) -> AsyncGenerator[SearchIngest]:
+    async def exclusive_transfer_request(self) -> AsyncGenerator[SearchIngest | None]:
         async def find_open_request() -> AsyncGenerator[SearchIngest]:
             # Test open transfer requests first
             for req in await self.list_ingests(limit=5, only_open=True):
@@ -160,4 +160,8 @@ class IngestTracker:
                     # note: not marking end of queued here because we might have lost the lock due to an error.
                     break
             except Timeout:
-                pass
+                # another process is already working on this request, so try the next candidate
+                continue
+        else:
+            # Found no open transfer requests, so yield None instead so the contextmanager has something to check against
+            yield None

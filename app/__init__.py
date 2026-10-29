@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Annotated
 import typer
 
 from .db.engine import get_engine
-from .robots import EnhancementRunner, MatchRunner, IngestionQueueRunner
+from .robots import EnhancementRunner, IngestionQueueRunner, MatchRunner
 from .util import get_settings, init_logging
 
 if TYPE_CHECKING:

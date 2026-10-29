@@ -25,8 +25,13 @@ Quick start:
 
 ```sh
 uv sync
-cp .config/.env.example .env   # fill in robot + keycloak credentials
-docker compose up --build      # Postgres + match + enhance runners
+# fill in robot + keycloak credentials
+cp .config/.env.example .config/.env.secret
+# Postgres + match + enhance + queue runners
+docker compose --env-file .config/.env.secret up --build
+
+# In case docker is not picking up configured variables, this helps in debugging:
+docker compose --env-file .config/.env.secret config
 ```
 
 Run documentation locally:

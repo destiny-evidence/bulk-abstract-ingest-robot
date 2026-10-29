@@ -4,6 +4,6 @@ from .queue import IngestionQueueRunner
 
 __all__ = [
     "EnhancementRunner",
-    "MatchRunner",
     "IngestionQueueRunner",
+    "MatchRunner",
 ]

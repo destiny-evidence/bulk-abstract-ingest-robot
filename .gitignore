@@ -185,3 +185,4 @@ cython_debug/
 !.config/logging.json
 !.config/.env.example
 /docs/site/
+.data/

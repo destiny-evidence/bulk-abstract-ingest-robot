@@ -113,12 +113,12 @@ class TestAbstractMatching:
 
 
 class TestLoopTask:
-    def test_stops_when_no_entries(self, match_runner):
+    def test_keeps_polling_when_no_entries(self, match_runner):
         match_runner.store.get_next_request_batch.return_value = []
 
         asyncio.run(match_runner._loop_task())
 
-        assert match_runner.shutdown_event.is_set()
+        assert not match_runner.shutdown_event.is_set()  # an empty task list no longer stops the robot
         match_runner.repository.query_repository.assert_not_called()
         match_runner.store.persist_match_results.assert_not_awaited()
 
