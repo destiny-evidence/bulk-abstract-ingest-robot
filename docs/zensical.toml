@@ -6,12 +6,12 @@ extra_javascript = [
     "assets/mermaid.min.js",
 ]
 nav = [
-    { "Get started" = "index.md" },
     { "Architecture" = "architecture.md" },
-    { "Enhancement rules" = "matching.md" },
     { "Configuration" = "configuration.md" },
     { "Data model" = "data-model.md" },
     { "Development and operations" = "development.md" },
+    { "Enhancement rules" = "matching.md" },
+    { "Get started" = "index.md" },
 ]
 repo_name = "destiny-evidence/bulk-abstract-ingest-robot"
 repo_url = "https://github.com/destiny-evidence/bulk-abstract-ingest-robot"

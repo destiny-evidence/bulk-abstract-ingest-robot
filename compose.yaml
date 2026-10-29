@@ -50,7 +50,7 @@ services:
     user: "${UID:-1000}:${GID:-1000}"
     build:
       context: .
-    command: [ "uv", "run", "--no-dev", "python", "run_robot.py", "match" ]
+    command: ["uv", "run", "--no-dev", "python", "run_robot.py", "match"]
     extra_hosts:
       - "host.docker.internal:host-gateway"
     env_file:
@@ -66,7 +66,7 @@ services:
     user: "${UID:-1000}:${GID:-1000}"
     build:
       context: .
-    command: [ "uv", "run", "--no-dev", "python", "run_robot.py", "enhance" ]
+    command: ["uv", "run", "--no-dev", "python", "run_robot.py", "enhance"]
     extra_hosts:
       - "host.docker.internal:host-gateway"
     env_file:
@@ -92,14 +92,14 @@ services:
     user: "${UID:-1000}:${GID:-1000}"
     build:
       context: .
-    command: [ "uv", "run", "--no-dev", "python", "run_robot.py", "queue" ]
+    command: ["uv", "run", "--no-dev", "python", "run_robot.py", "queue"]
     extra_hosts:
       - "host.docker.internal:host-gateway"
     env_file:
       - ${ENV_FILE:-.config/.env.example}
     environment:
       - "DB_HOST=${DB_HOST:-postgres}"
-      - "TRANSFER_LOCKS_PATH=/app/.data/locks"  # override
+      - "TRANSFER_LOCKS_PATH=/app/.data/locks" # override
     volumes:
       - ${TRANSFER_LOCKS_PATH:-./.data/locks}:/app/.data/locks:rw
     depends_on:
