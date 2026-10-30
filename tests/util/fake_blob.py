@@ -35,6 +35,8 @@ class FakeBlobStorage:
 
     def blocks(self, offset: int) -> list[bytes]:
         """The download blocks the real SDK would serve for a request starting at `offset`."""
+        if not isinstance(self.data, (bytes, bytearray)):
+            raise TypeError(f"FakeBlobStorage.data must be bytes, got {type(self.data).__name__}")
         if not 0 <= offset <= len(self.data):
             raise AssertionError(f"download requested outside the blob: offset={offset:,} > size={len(self.data):,}")
         blocks = [self.data[i : i + self.block_size] for i in range(offset, len(self.data), self.block_size)]

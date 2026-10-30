@@ -3,7 +3,9 @@ Realistic sample data and generators shared across the runner tests.
 
 Texts are sized and shaped to exercise the matching thresholds in `app/robots/match.py`:
 `title_with_distance` and `abstract_with_distance` control the exact edit distance from
-`TITLE`/`NEW_ABSTRACT`, and the `*_for` helpers build reference value lists around those thresholds.
+`TITLE`/`NEW_ABSTRACT`, `abstract_with_raw_length` controls the raw length the abstract
+length thresholds are measured on, and the `*_for` helpers build reference value lists
+around those thresholds.
 """
 
 import itertools
@@ -45,6 +47,9 @@ DEFAULT_ABSTRACT = (
     "We compare flood adaptation governance across 12 port cities (2010–2024) using 96 policy documents and 41 interviews. Financing mode, not hazard exposure, best explains "
     "implementation speed; centrally funded plans deliver 2.3x faster. We recommend pooling municipal risk bonds — median coverage rises from 34% to 71% in our simulations."
 )
+
+# Short enough to be padded up to the low end of the abstract length window (see abstract_with_raw_length)
+MINIMAL_ABSTRACT = "We compare flood adaptation governance across port cities using policy documents and interviews; financing mode, not hazard exposure, explains implementation speed."
 
 SAS_URL = "https://wrapper.blob.core.windows.net/exports/scopus-results.jsonl?sv=2025-11-03&se=2026-11-01&sp=r&sig=FAKEdummy"
 
@@ -94,11 +99,18 @@ def cache_entry(**overrides) -> ParsedRecord:
 
 
 def ods_reference(**overrides) -> ODSRecord:
+    """
+    A repository record that the default `cache_entry()` passes every check in either enhancement-check mode.
+
+    The abstract stays missing on purpose: whether a repository abstract blocks submission depends on
+    `use_slop_for_enhancement_check`, so tests about the other rules keep it out of the way and the tests
+    about the abstract hand it one explicitly.
+    """
     return ODSRecord(
         **{
             "destiny_id": DESTINY_ID,
             "titles": [TITLE],
-            "abstracts": [DIFFERENT_ABSTRACT],
+            "abstracts": None,
             "publication_years": [2020],
             **overrides,
         },
@@ -132,8 +144,19 @@ def abstract_with_distance(distance: int) -> str:
     return NEW_ABSTRACT + ";" + words_with_letters(distance)
 
 
-def abstracts_for(kind: str, slop: int) -> list[str] | None:
-    """Reference abstract lists around the similarity threshold (considered duplicates up to and including distance `slop`)."""
+def abstract_with_raw_length(raw_length: int, base: str = NEW_ABSTRACT) -> str:
+    """
+    `base` padded to exactly `raw_length` raw characters of digits (digits are stripped before comparison,
+    so this stretches the raw length the length thresholds are measured on without changing the edit distance).
+    """
+    return base + ("0123456789" * raw_length)[: max(0, raw_length - len(base))]
+
+
+def abstracts_for(kind: str, slop: int, max_length: int) -> list[str] | None:
+    """
+    Reference abstract lists around the thresholds (considered duplicates up to and including distance `slop`,
+    and no longer trustworthy from `max_length` raw characters upwards, on either side of the comparison).
+    """
     near, far, far_away = abstract_with_distance(slop), abstract_with_distance(slop + 1), abstract_with_distance(slop + 5)
     return {
         "none": None,
@@ -142,6 +165,9 @@ def abstracts_for(kind: str, slop: int) -> list[str] | None:
         "far": [far],
         "unrelated": [UNRELATED_ABSTRACTS[0]],
         "too_short": ["Abstract not available. (2019)?"],
+        "just_below_max_length": [abstract_with_raw_length(max_length - 1)],
+        "at_max_length": [abstract_with_raw_length(max_length)],
+        "overlong": [abstract_with_raw_length(max_length + 1)],
         "multi_all_unrelated": UNRELATED_ABSTRACTS,
         "multi_exact_among_unrelated": [UNRELATED_ABSTRACTS[0], SAME_ABSTRACT, UNRELATED_ABSTRACTS[1]],
         "multi_near_among_unrelated": [UNRELATED_ABSTRACTS[0], near],

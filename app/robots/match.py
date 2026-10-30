@@ -14,12 +14,12 @@ class MatchRunner(Runner):
 
     def should_enhance(self, cache_entry: ParsedRecord, reference: ODSRecord) -> bool:
         """Submittable if following rules hold true: (abstract is missing in repository or not matching known abstract) and publication year +/-N."""
-        if cache_entry.abstract is None or len(cache_entry.abstract) < self.settings.min_abstract_length:
-            # Empty and short abstracts are not good //  We should not end up here, this check is just in case...
+        if cache_entry.abstract is None or not self.settings.min_abstract_length <= len(cache_entry.abstract) < self.settings.max_abstract_length:
+            # Current record has no abstract, or it is too short/too long to be worth submitting
             return False
 
         if reference.destiny_id is None:
-            # Missing DESTinY repository ID //  We should not end up here, this check is just in case...
+            # Missing ODS ID //  We should not end up here, this check is just in case...
             return False
 
         if (
@@ -42,17 +42,24 @@ class MatchRunner(Runner):
                 # None of the known titles are below the similarity threshold
                 return False
 
-        if cache_entry.abstract is not None and reference.abstracts is not None and len(cache_entry.abstract) > self.settings.min_abstract_length:
+        # We have abstracts to compare to
+        if reference.abstracts is not None:
             cached_abstract = ALPH.sub("", cache_entry.abstract.lower())
             if any(
                 (
+                    # Existing abstract is valid
                     abstract is not None
-                    and len(abstract) > self.settings.min_abstract_length
-                    and len(list(difflib.ndiff(cached_abstract, ALPH.sub("", abstract.lower())))) - len(cached_abstract) <= self.settings.max_abstract_slop
+                    and self.settings.min_abstract_length < len(abstract) < self.settings.max_abstract_length
+                    and (
+                        # Mode 1) Existing abstract is "good enough" -> don't enhance
+                        not self.settings.use_slop_for_enhancement_check
+                        # Mode 2) Abstracts are similar (with slop) -> don't enhance
+                        or (self.settings.max_abstract_slop + len(cached_abstract) >= len(list(difflib.ndiff(cached_abstract, ALPH.sub("", abstract.lower())))))
+                    )
                     for abstract in reference.abstracts
                 ),
             ):
-                # No need to submit this abstract as an enhancement, we have a similar abstract already in the repository
+                # No need to submit this abstract as an enhancement, we have a good enough or similar abstract already in the repository
                 return False
 
         # All checks passed, we can submit this abstract enhancement to the repository

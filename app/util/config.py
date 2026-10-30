@@ -169,9 +169,16 @@ class Settings(BaseSettings):
         default=200,
         description="Minimum length of abstract that we might consider for submitting to the repository",
     )
+    max_abstract_length: int = Field(
+        default=10000,
+        description="Threshold to consider a long abstract not trustworthy",
+    )
     max_abstract_slop: int = Field(
         default=100,
         description="Threshold for edit distance between abstracts to consider them identical",
+    )
+    use_slop_for_enhancement_check: bool = Field(
+        default=False, description="When enabled, will use difference between abstracts to determine need for enhancement"
     )
     max_title_slop: int = Field(
         default=10,

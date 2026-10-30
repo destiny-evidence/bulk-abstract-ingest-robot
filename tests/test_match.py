@@ -14,10 +14,13 @@ import pytest
 
 from tests.util.fake_data import (
     DESTINY_ID,
+    DIFFERENT_ABSTRACT,
+    MINIMAL_ABSTRACT,
     NEW_ABSTRACT,
     OTHER_ID,
     SAME_ABSTRACT,
     TITLE,
+    abstract_with_raw_length,
     abstracts_for,
     cache_entry,
     ods_reference,
@@ -85,31 +88,80 @@ class TestTitleMatching:
 
 
 class TestAbstractMatching:
+    # The rows carry the outcome for both settings of `use_slop_for_enhancement_check`: compared (True) or not (False, the default).
     @pytest.mark.parametrize(
-        ("kind", "expected"),
+        ("kind", "expected_compared", "expected_presence_only"),
         [
-            ("none", True),  # the repository has no abstract yet, submitting is the whole point
-            ("exact", False),  # an identical abstract is already in the repository
-            ("near", False),  # distance == max_abstract_slop, still considered a duplicate
-            ("far", True),  # distance == max_abstract_slop + 1, just out of tolerance and thus a genuinely new abstract
-            ("unrelated", True),
-            ("too_short", True),  # repository abstracts at or below min_abstract_length are ignored
-            ("multi_all_unrelated", True),
-            ("multi_exact_among_unrelated", False),
-            ("multi_near_among_unrelated", False),
-            ("multi_all_beyond_threshold", True),
-            ("multi_all_three_thresholds", False),  # a single similar repository abstract blocks submission
+            ("none", True, True),  # the repository has no abstract yet, submitting is the whole point
+            ("exact", False, False),  # an identical abstract is already in the repository
+            ("near", False, False),  # distance == max_abstract_slop, still considered a duplicate
+            ("far", True, False),  # distance == max_abstract_slop + 1: new text when compared, but any repository abstract will do when not
+            ("unrelated", True, False),  # whether the repository abstract says something else only matters when the texts are compared
+            ("too_short", True, True),  # repository abstracts at or below min_abstract_length are ignored
+            ("just_below_max_length", False, False),  # long, but still short enough to be trusted
+            ("at_max_length", True, True),  # max_abstract_length is where a repository abstract stops being trusted, in either mode
+            ("overlong", True, True),  # ... so even the very same text we are about to submit stops blocking once it is over the threshold
+            ("multi_all_unrelated", True, False),
+            ("multi_exact_among_unrelated", False, False),
+            ("multi_near_among_unrelated", False, False),
+            ("multi_all_beyond_threshold", True, False),
+            ("multi_all_three_thresholds", False, False),  # a single similar repository abstract blocks submission
         ],
     )
-    def test_abstract_filtering(self, match_runner, settings, kind, expected):
-        assert match_runner.should_enhance(cache_entry(), ods_reference(abstracts=abstracts_for(kind, settings.max_abstract_slop))) is expected
+    @pytest.mark.parametrize("use_slop", [True, False], ids=["compared", "presence only"])
+    def test_abstract_filtering(self, match_runner, settings, kind, expected_compared, expected_presence_only, use_slop):
+        settings.use_slop_for_enhancement_check = use_slop
+        expected = expected_compared if use_slop else expected_presence_only
+        abstracts = abstracts_for(kind, settings.max_abstract_slop, settings.max_abstract_length)
 
-    def test_abstract_comparison_is_normalised(self, match_runner):
+        assert match_runner.should_enhance(cache_entry(), ods_reference(abstracts=abstracts)) is expected
+
+    @pytest.mark.parametrize("offset", [-1, 0], ids=["just below min", "at min"])
+    def test_cached_abstract_shortness(self, match_runner, settings, offset):
+        # Below min_abstract_length there is nothing worth submitting; at exactly the threshold the abstract counts, and the comparison is skipped (it asks for more than the minimum)
+        expected = offset >= 0
+        abstract = abstract_with_raw_length(settings.min_abstract_length + offset, MINIMAL_ABSTRACT)
+
+        assert match_runner.should_enhance(cache_entry(abstract=abstract), ods_reference()) is expected
+
+    @pytest.mark.parametrize("offset", [-1, 0, 1], ids=["just below max", "at max", "above max"])
+    def test_cached_abstract_length_window(self, match_runner, settings, offset):
+        # Our own abstract is only trustworthy while it stays below max_abstract_length; the reference carries none, so this is purely the cached side's bound
+        expected = offset < 0
+        abstract = abstract_with_raw_length(settings.max_abstract_length + offset)
+
+        assert match_runner.should_enhance(cache_entry(abstract=abstract), ods_reference()) is expected
+
+    @pytest.mark.parametrize("use_slop", [True, False], ids=["compared", "presence only"])
+    def test_overlong_cached_abstract_is_rejected_before_comparing(self, match_runner, settings, use_slop):
+        # Too long to be trusted, so it never reaches the abstract check — not even against a repository copy of itself
+        settings.use_slop_for_enhancement_check = use_slop
+        overlong = abstract_with_raw_length(settings.max_abstract_length)
+
+        assert match_runner.should_enhance(cache_entry(abstract=overlong), ods_reference(abstracts=[SAME_ABSTRACT])) is False
+
+    def test_abstract_comparison_is_normalised(self, match_runner, settings):
         # case, punctuation, digits and spacing differences are stripped before comparison, so the repository still has a matching abstract
+        # (only the comparison can show that: presence-only mode would block this entry for length reasons alone)
+        settings.use_slop_for_enhancement_check = True
+
         assert (
             match_runner.should_enhance(cache_entry(abstract=NEW_ABSTRACT.upper().replace(" ", ",  ") + "?? + 2026"), ods_reference(abstracts=[SAME_ABSTRACT]))
             is False
         )
+
+    def test_the_check_mode_decides_a_different_repository_abstract(self, match_runner, settings):
+        """
+        One and the same record is eligible or not, depending only on `use_slop_for_enhancement_check`:
+        the repository has an abstract of trustworthy length that clearly talks about something else.
+        """
+        reference = ods_reference(abstracts=[DIFFERENT_ABSTRACT])
+
+        settings.use_slop_for_enhancement_check = True
+        assert match_runner.should_enhance(cache_entry(), reference) is True
+
+        settings.use_slop_for_enhancement_check = False
+        assert match_runner.should_enhance(cache_entry(), reference) is False
 
 
 class TestLoopTask:
@@ -148,3 +200,19 @@ class TestLoopTask:
 
         match_runner.repository.request_to_enhance.assert_not_called()
         match_runner.store.persist_match_results.assert_awaited_once()
+
+    def test_enhancement_check_mode_changes_what_is_requested(self, match_runner, settings):
+        """The same batch yields a request in comparison mode and none in presence-only mode (the default)."""
+        entry = cache_entry()
+        match_runner.store.get_next_request_batch.return_value = [entry]
+        match_runner.repository.query_repository.return_value = [(entry, ods_reference(abstracts=[DIFFERENT_ABSTRACT]))]
+
+        settings.use_slop_for_enhancement_check = True
+        asyncio.run(match_runner._loop_task())
+        assert match_runner.repository.request_to_enhance.call_count == 1
+
+        match_runner.repository.request_to_enhance.reset_mock()
+        settings.use_slop_for_enhancement_check = False
+        asyncio.run(match_runner._loop_task())
+        match_runner.repository.request_to_enhance.assert_not_called()
+        match_runner.store.persist_match_results.assert_awaited()  # the entry is still matched and recorded, just not submitted
