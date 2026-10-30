@@ -1,21 +1,37 @@
 """Utility module."""
 
-from .config import Settings, get_logger, get_settings
-from .db_engine import DatabaseEngine, get_engine
+from collections.abc import AsyncGenerator, AsyncIterable
+from typing import TypeVar
+
+from .config import Settings, get_settings
+from .logging import init_logging
 from .repository import Repository
 from .runner import Runner
-from .store import AbstractStore
-from .types import Record, flatten_reference
+
+T = TypeVar("T")
+
+
+async def async_batched[T](iterable: AsyncIterable[T], batch_size: int) -> AsyncGenerator[list[T]]:
+    """Batch data from an async iterable into tuples of length n."""
+    if batch_size < 1:
+        raise ValueError("n must be at least one")
+
+    # Retrieve items in chunks using an inner buffer
+    batch: list[T] = []
+    async for item in iterable:
+        batch.append(item)
+        if len(batch) == batch_size:
+            yield batch
+            batch = []
+    if batch:
+        yield batch
+
 
 __all__ = [
-    "AbstractStore",
-    "DatabaseEngine",
-    "Record",
     "Repository",
     "Runner",
     "Settings",
-    "flatten_reference",
-    "get_engine",
-    "get_logger",
+    "async_batched",
     "get_settings",
+    "init_logging",
 ]

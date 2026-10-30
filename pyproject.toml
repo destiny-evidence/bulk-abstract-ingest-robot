@@ -1,50 +1,61 @@
-[project]
-version = "0.2.0"
-description = "Robot to add abstract enhancements from exising repositories to records with missing abstracts"
-name = "bulk-abstract-ingest"
-readme = "README.md"
-requires-python = ">=3.14"
-authors = [
-    { email = "tim.repke@pik-potsdam.de", name = "Tim Repke" },
-    { email = "adam@futureevidence.org", name = "Adam Hamilton" },
-    { email = "h.moss@ucl.ac.uk", name = "Harry Moss" },
-]
-
-dependencies = [
-    "httpx>=0.28.0,<0.29.0",
-    "opentelemetry-distro>=0.57b0",
-    "opentelemetry-exporter-otlp>=1.42.1",
-    "opentelemetry-instrumentation-httpx>=0.57b0",
-    "opentelemetry-instrumentation>=0.57b0",
-    "pydantic-settings>=2.14.1,<3",
-    "psycopg[binary]>=3.2.12,<4",
-    "sqlalchemy[postgresql]>=2.0.50,<3.0",
-    "typer>=0.26.7,<1.0",
-    "destiny-sdk>=0.16.0",
-]
-
-[dependency-groups]
-dev = [
-    "mypy==2.1.0",
-    "pre-commit==4.6.0",
-    "pytest-httpx==0.36.2",
-    "pytest==9.0.3",
-    "ruff==0.15.16",
-]
-
 [build-system]
 build-backend = "hatchling.build"
 requires = ["hatchling"]
 
-[tool.mypy]
-strict = true
-explicit_package_bases = true
-plugins = ["pydantic.mypy", "sqlalchemy.ext.mypy.plugin"]
-files = ['app']
-exclude = []
+[dependency-groups]
+dev = [
+    "mypy~=2.4.0",
+    "pre-commit~=4.7.0",
+    "pytest-httpx~=0.36.2",
+    "pytest~=9.1.1",
+    "ruff~=0.17.1",
+    "zensical~=0.0.71",
+]
 
+[project]
+authors = [
+    { email = "adam@futureevidence.org", name = "Adam Hamilton" },
+    { email = "h.moss@ucl.ac.uk", name = "Harry Moss" },
+    { email = "tim.repke@pik-potsdam.de", name = "Tim Repke" },
+]
+dependencies = [
+    # "academic-apis",
+    "aiofiles~=25.1.0",
+    "aiohttp>=3.14.5",
+    "azure-storage-blob~=12.31",
+    "destiny-sdk~=0.17.4",
+    "filelock~=4.2.4",
+    "greenlet~=3.5.6",
+    "httpx2~=2.16.0",
+    "opentelemetry-distro~=0.57b0",
+    "opentelemetry-exporter-otlp~=1.42.1",
+    "opentelemetry-instrumentation-httpx~=0.57b0",
+    "opentelemetry-instrumentation~=0.57b0",
+    "psycopg[binary]~=3.2.12,<4",
+    "pydantic-settings~=2.14.1,<3",
+    "sqlalchemy[postgresql]~=2.0.50,<3.0",
+    "sqlmodel~=0.0.48",
+    "typer~=0.27.3",
+]
+description = "Robot to add abstract enhancements from exising repositories to records with missing abstracts"
+name = "bulk-abstract-ingest"
+readme = "README.md"
+requires-python = ">=3.14, <3.15"
+version = "0.3.0"
+
+[tool.mypy]
 # for strict mypy: (this is the tricky one :-))
 disallow_untyped_defs = true
+exclude = []
+explicit_package_bases = true
+files = ['app']
+plugins = ["pydantic.mypy"]
+strict = true
+
+[[tool.mypy.overrides]]
+disallow_untyped_calls = false
+disallow_untyped_defs = false
+module = "tests.*"
 
 [tool.pytest.ini_options]
 addopts = ["--color=yes", "--import-mode=importlib", "--verbose"]
@@ -52,47 +63,82 @@ pythonpath = "."
 testpaths = ["tests"]
 
 [tool.ruff]
-line-length = 160
 extend-exclude = ["app/migrations/versions/*.py", "docs/*.py"]
 fix = true
 force-exclude = true
-target-version = "py314"
+line-length = 160
 lint.ignore = [
     "COM812", # trailing commas (ruff-format recommended)
+    "CPY001", # Missing copyright notice at top of file
+    "D100", # Missing docstring in public module
+    "D101", # Missing docstring in public class
+    "D102", # Missing docstring in public method
+    "D103", # Missing docstring in public function
+    "D104", # Missing docstring in public package
+    "D105", # Missing docstring in magic method
+    "D107", # Missing docstring in `__init__`
     "D203", # no-blank-line-before-class
+    "D205", # 1 blank line required between summary line and description
     "D212", # multi-line-summary-first-line
+    "D400", # First line should end with a period
+    "D401", # First line of docstring should be in imperative mood: "Runs startup events for client and worker side."
     "D407", # removed dashes lines under sections
+    "D415", # First line should end with a period, question mark, or exclamation point
     "D417", # argument description in docstring (unreliable)
-    "FIX002", # implicit trust that TODOs are not trivial, or else they would be fixed
-    "ISC001", # simplify implicit str concatenation (ruff-format recommended)
+    "E203",
+    "E501",
+    "E712",
+    "E741",
     "EM101", # Exception must not use a string literal, assign to variable first
     "EM102", # Exception must not use an f-string literal, assign to variable first
-    "TRY003", # Avoid specifying long messages outside the exception class
-    "G004", # Logging statement uses f-string
-    "FBT002", # Boolean default positional argument in function definition
+    "ERA001", # Found commented-out code
     "FBT001", # Boolean-typed positional argument in function definition
-    "TRY401", # Redundant exception object included in `logging.exception` call
+    "FBT002", # Boolean default positional argument in function definition
+    "FIX002", # implicit trust that TODOs are not trivial, or else they would be fixed
+    "G004", # Logging statement uses f-string
+    "ISC001", # simplify implicit str concatenation (ruff-format recommended)
+    "PLC0415", # `import` should be at the top-level of a file
+    "PLR0911", # Too many return statements (7 > 6)
+    "PLR0913", # Too many arguments in function definition (7 > 5)
+    "PLR0917", # Too many positional arguments (7 > 5)
+    "TC001", # Move application import `academic_apis.utils.types.Wrapper` into a type-checking block
+    "TC002", # Move third-party import `httpx.Response` into a type-checking block
+    "TC003", # Move standard library import `pathlib.Path` into a type-checking block
+    "TD002", # Missing author in TODO;
+    "TD003", # Missing issue link for this TODO
+    "TID252", # Prefer absolute imports over relative imports from parent modules
+    "TRY003", # Avoid specifying long messages outside the exception class
+    "TRY201", # Use `raise` without specifying exception name
+    "TRY300", # Consider moving this statement to an `else` block
     "TRY400", # Use `logging.exception` instead of `logging.error
+    "TRY401", # Redundant exception object included in `logging.exception` call
+    "UP042", # Class Wrapper inherits from both `str` and `enum.Enum`
+    # "RUF100", # Prevent Ruff from removing noqa directives
 ]
+lint.mccabe.max-complexity = 18
+lint.pep8-naming.classmethod-decorators = ["classmethod"]
 lint.per-file-ignores = { "tests*" = [
+    "ANN001", # No type annotation for arguments. It's always obvious from the fixture.
+    "ANN003", # No type annotation for **kwargs. It's always obvious from the fixture.
     "ANN201", # No return type annotation. It's always None for tests.
     "INP001", # File is part of an implicit namespace package.
     "PLR2004", # Magic value used in comparison
+    "RUF001", # Ambiguous unicode characters (i.e. the en dashes) are intentional in realistic test texts
     "S101", # Use of `assert` detected
+    "SLF001", # Tests may call private members (i.e. the runner's `_loop_task`)
 ] }
 lint.select = ["ALL"]
-lint.mccabe.max-complexity = 18
-lint.pep8-naming.classmethod-decorators = ["classmethod"]
+target-version = "py314"
 
 [tool.tomlsort]
 all = true
+overrides."project.classifiers".inline_arrays = false
+overrides."project.nav".inline_arrays = false
+overrides."tool.coverage.paths.source".inline_arrays = false
 spaces_indent_inline_array = 4
 trailing_comma_inline_array = true
-overrides."project.classifiers".inline_arrays = false
-overrides."tool.coverage.paths.source".inline_arrays = false
 
 [tool.uv]
-package = false
-
 exclude-newer = "P5D"
-exclude-newer-package = {destiny-sdk = false}
+exclude-newer-package = { destiny-sdk = false }
+package = false

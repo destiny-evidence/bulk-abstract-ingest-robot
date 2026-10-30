@@ -1,24 +1,117 @@
 services:
+  postgres:
+    user: "${UID:-1000}:${GID:-1000}"
+    image: postgres:18-alpine
+    env_file:
+      - ${ENV_FILE:-.config/.env.example}
+    environment:
+      - POSTGRES_DB: ${DB_NAME:-meta_cache}
+      - POSTGRES_USER: ${DB_USER:-pguser}
+      - POSTGRES_PASSWORD: ${DB_PASSWORD:-password}
+      - PGOPTIONS: "-c client_min_messages=warning"
+    ports:
+      # Exposed on the host so the robot can be run outside Docker with the default localhost settings
+      - "127.0.0.1:${HOST_DB_PORT:-5432}:5432"
+    volumes:
+      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - ${DOCKER_PG_PATH:-postgres_data}:/var/lib/postgresql
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${DB_USER:-pguser} -d ${DB_NAME:-meta_cache}",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    restart: unless-stopped
+
+  sql-cron:
+    image: alpine:latest
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PGPASSWORD: ${DB_PASSWORD:-password}
+      # Keeps the once-a-minute `CREATE TABLE IF NOT EXISTS` notice out of the
+      # logs. PGOPTIONS is a libpq client setting, so it belongs here, not on
+      # the postgres service.
+      PGOPTIONS: "-c client_min_messages=warning"
+    entrypoint: >
+      sh -c '
+      apk add --no-cache postgresql-client > /dev/null &&
+      printf "%s\n" \
+        "* * * * * psql -q -v ON_ERROR_STOP=1 -h postgres -U ${DB_USER:-pguser} -d ${DB_NAME:-meta_cache} -f /scripts/tracking.sql > /dev/null" \
+        "0 10 * * * psql -q -v ON_ERROR_STOP=1 -h postgres -U ${DB_USER:-pguser} -d ${DB_NAME:-meta_cache} -f /scripts/compact.sql > /dev/null" \
+        > /var/spool/cron/crontabs/root &&
+      exec crond -f -l 2
+      '
+    volumes:
+      - ./scripts/:/scripts:ro
+
   match:
+    user: "${UID:-1000}:${GID:-1000}"
     build:
       context: .
-    command: ["uv", "run","python", "run_robot.py", "match"]
-    env_file:
-      - .env
+    command: ["uv", "run", "--no-dev", "python", "run_robot.py", "match"]
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    env_file:
+      - ${ENV_FILE:-.config/.env.example}
     environment:
-      - "PIK_DB_HOST=host.docker.internal"
+      - "DB_HOST=${DB_HOST:-postgres}"
+    depends_on:
+      postgres:
+        condition: service_healthy
     restart: unless-stopped
 
   enhance:
+    user: "${UID:-1000}:${GID:-1000}"
     build:
       context: .
-    command: ["uv", "run", "python", "run_robot.py", "enhance"]
-    env_file:
-      - .env
+    command: ["uv", "run", "--no-dev", "python", "run_robot.py", "enhance"]
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    env_file:
+      - ${ENV_FILE:-.config/.env.example}
     environment:
-      - "PIK_DB_HOST=host.docker.internal"
+      - "DB_HOST=${DB_HOST:-postgres}"
+    depends_on:
+      postgres:
+        condition: service_healthy
     restart: unless-stopped
+
+  # Docker auto-creates missing bind-mount directories as root:root, which the
+  # non-root queue process cannot write to. This one-shot service (running as
+  # root) creates the host directory and hands it over to the app user.
+  locks-init:
+    image: alpine:latest
+    command: "mkdir -p /locks && chown ${UID:-1000}:${GID:-1000} /locks"
+    volumes:
+      - ${TRANSFER_LOCKS_PATH:-./.data/locks}:/locks
+    restart: "no"
+
+  queue:
+    user: "${UID:-1000}:${GID:-1000}"
+    build:
+      context: .
+    command: ["uv", "run", "--no-dev", "python", "run_robot.py", "queue"]
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    env_file:
+      - ${ENV_FILE:-.config/.env.example}
+    environment:
+      - "DB_HOST=${DB_HOST:-postgres}"
+      - "TRANSFER_LOCKS_PATH=/app/.data/locks" # override
+    volumes:
+      - ${TRANSFER_LOCKS_PATH:-./.data/locks}:/app/.data/locks:rw
+    depends_on:
+      locks-init:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
