@@ -16,8 +16,10 @@
       
       
       
+        <link rel="prev" href="./index.html">
       
-        <link rel="next" href="./configuration.html">
+      
+        <link rel="next" href="./matching.html">
       
       
         
@@ -241,6 +243,32 @@
       
   
   
+  
+  
+    <li class="md-nav__item">
+      <a href="./index.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Get started
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
     
   
   
@@ -383,14 +411,14 @@
   
   
     <li class="md-nav__item">
-      <a href="./configuration.html" class="md-nav__link">
+      <a href="./matching.html" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-  Configuration
+  Enhancement rules
 
     
   </span>
@@ -435,6 +463,58 @@
   
   
     <li class="md-nav__item">
+      <a href="./configuration.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Configuration
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="./monitoring.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Monitoring
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="./development.html" class="md-nav__link">
         
   
@@ -443,58 +523,6 @@
     
   
   Development and operations
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-    
-      
-      
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="./matching.html" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  Enhancement rules
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-    
-      
-      
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="./index.html" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  Get started
 
     
   </span>
@@ -673,10 +701,6 @@
 </tr>
 </tbody>
 </table>
-<div class="admonition info">
-<p class="admonition-title">Queue runner status</p>
-</div>
-<p>The queue runner is implemented but not yet wired into <code>run_robot.py</code> (the CLI currently accepts <code>match</code> and <code>enhance</code>). It is also not part of <code>compose.yaml</code> yet. See <a href="https://github.com/destiny-evidence/bulk-abstract-ingest-robot/pull/8">PR #8</a>.</p>
 <h2 id="end-to-end-sequence">End-to-end sequence<a class="headerlink" href="#end-to-end-sequence" title="Permanent link">&para;</a></h2>
 <pre class="mermaid"><code>sequenceDiagram
     autonumber
@@ -754,7 +778,7 @@
 <ul>
 <li><strong><a href="https://github.com/destiny-evidence/academic-api-importer">Academic API Importer</a></strong> — retrieves the large result sets from vendor APIs (Scopus today) and uploads them to blob storage; its "ingest bridge" is intended to feed the <code>search_ingest</code> table so the transfer starts automatically.</li>
 <li><strong>DESTinY repository</strong> — the target index. Interaction is via <code>destiny_sdk</code>: an HMAC-signed <code>RobotClient</code> for polling/submitting enhancement batches and a Keycloak-OAuth <code>OAuthClient</code> for reference lookups and enhancement requests. See <a href="development.html#authentication-against-the-destiny-repository">Authentication</a>.</li>
-<li><strong><code>scripts/clean_db.sql</code></strong> — periodically purges records that are submitted or will never be submitted (raw data stays cheaply available in cold blob storage if ever needed again).</li>
+<li><strong>Monitoring pipeline</strong> — <code>scripts/tracking.sql</code> records counters into a <code>monitoring</code> table every minute (via the <code>sql-cron</code> Compose service), <code>scripts/compact.sql</code> aggregates them daily. See <a href="monitoring.html">Monitoring</a>.</li>
 </ul>
 
 
@@ -794,15 +818,31 @@
       
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
+          
+          <a href="./index.html" class="md-footer__link md-footer__link--prev" aria-label="Previous: Get started">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-arrow-left" viewBox="0 0 24 24"><path d="m12 19-7-7 7-7M19 12H5"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              <div class="md-ellipsis">
+                Get started
+              </div>
+            </div>
+          </a>
+        
         
           
-          <a href="./configuration.html" class="md-footer__link md-footer__link--next" aria-label="Next: Configuration">
+          <a href="./matching.html" class="md-footer__link md-footer__link--next" aria-label="Next: Enhancement rules">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Configuration
+                Enhancement rules
               </div>
             </div>
             <div class="md-footer__button md-icon">

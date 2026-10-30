@@ -16,8 +16,8 @@
       
       
       
-        <link rel="prev" href="./matching.html">
       
+        <link rel="next" href="./architecture.html">
       
       
         
@@ -241,136 +241,6 @@
       
   
   
-  
-  
-    <li class="md-nav__item">
-      <a href="./architecture.html" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  Architecture
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-    
-      
-      
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="./configuration.html" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  Configuration
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-    
-      
-      
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="./data-model.html" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  Data model
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-    
-      
-      
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="./development.html" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  Development and operations
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-    
-      
-      
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="./matching.html" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  Enhancement rules
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-    
-      
-      
-  
-  
     
   
   
@@ -491,6 +361,162 @@
   
 </nav>
       
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="./architecture.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Architecture
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="./matching.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Enhancement rules
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="./data-model.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Data model
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="./configuration.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Configuration
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="./monitoring.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Monitoring
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="./development.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Development and operations
+
+    
+  </span>
+  
+  
+
+      </a>
     </li>
   
 
@@ -679,10 +705,11 @@ Changes should be weighed against that end goal (see the discussion in <a href="
 <li><a href="data-model.html"><strong>Data model</strong></a> — the two tables (<code>search_ingest</code>, <code>records</code>) and their tracking columns.</li>
 <li><a href="matching.html"><strong>Enhancement rules</strong></a> — when an abstract is considered worth submitting, including the decision tree.</li>
 <li><a href="configuration.html"><strong>Configuration</strong></a> — all environment variables and logging options.</li>
+<li><a href="monitoring.html"><strong>Monitoring</strong></a> — how progress is tracked in the database, compacted, and viewed.</li>
 <li><a href="development.html"><strong>Development &amp; operations</strong></a> — setting up a dev environment, running the robot, Docker Compose, deployment notes.</li>
 </ul>
 <h2 id="project-structure">Project structure<a class="headerlink" href="#project-structure" title="Permanent link">&para;</a></h2>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>run_robot.py            # Typer CLI entry point (tasks: match, enhance)
+<div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>run_robot.py            # Typer CLI entry point (tasks: match, enhance, queue)
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>app/
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>├── robots/             # The runners — one loop task per module
 </span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>│   ├── queue.py        #   blob storage → records table ("transfer")
@@ -698,6 +725,7 @@ Changes should be weighed against that end goal (see the discussion in <a href="
 </span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>    ├── engine.py       #   async engine/session helpers
 </span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>    ├── store.py        #   AbstractStore — queries for match/enhance runners
 </span><span id="__span-0-16"><a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>    └── ingest.py       #   IngestTracker — transfer requests, checkpoints, locks
+</span><span id="__span-0-17"><a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>scripts/                # Ops SQL — metrics tracking, compaction, ad-hoc monitoring
 </span></code></pre></div>
 <p>Both tables are created automatically by SQLModel on startup, so a plain Postgres instance (or the <code>postgres</code> service in <code>compose.yaml</code>) is all that's needed.</p>
 
@@ -738,22 +766,22 @@ Changes should be weighed against that end goal (see the discussion in <a href="
       
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
+        
           
-          <a href="./matching.html" class="md-footer__link md-footer__link--prev" aria-label="Previous: Enhancement rules">
-            <div class="md-footer__button md-icon">
-              
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-arrow-left" viewBox="0 0 24 24"><path d="m12 19-7-7 7-7M19 12H5"/></svg>
-            </div>
+          <a href="./architecture.html" class="md-footer__link md-footer__link--next" aria-label="Next: Architecture">
             <div class="md-footer__title">
               <span class="md-footer__direction">
-                Previous
+                Next
               </span>
               <div class="md-ellipsis">
-                Enhancement rules
+                Architecture
               </div>
             </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-arrow-right" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+            </div>
           </a>
-        
         
       </nav>
     

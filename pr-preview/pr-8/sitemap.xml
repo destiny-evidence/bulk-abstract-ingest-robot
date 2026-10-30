@@ -18,4 +18,7 @@
       <url>
         <loc>https://www.example.com/matching.html</loc>
       </url>
+      <url>
+        <loc>https://www.example.com/monitoring.html</loc>
+      </url>
 </urlset>

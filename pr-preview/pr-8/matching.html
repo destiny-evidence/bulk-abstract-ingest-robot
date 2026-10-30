@@ -16,10 +16,10 @@
       
       
       
-        <link rel="prev" href="./development.html">
+        <link rel="prev" href="./architecture.html">
       
       
-        <link rel="next" href="./index.html">
+        <link rel="next" href="./data-model.html">
       
       
         
@@ -246,6 +246,32 @@
   
   
     <li class="md-nav__item">
+      <a href="./index.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Get started
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="./architecture.html" class="md-nav__link">
         
   
@@ -254,84 +280,6 @@
     
   
   Architecture
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-    
-      
-      
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="./configuration.html" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  Configuration
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-    
-      
-      
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="./data-model.html" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  Data model
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-    
-      
-      
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="./development.html" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  Development and operations
 
     
   </span>
@@ -484,14 +432,92 @@
   
   
     <li class="md-nav__item">
-      <a href="./index.html" class="md-nav__link">
+      <a href="./data-model.html" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-  Get started
+  Data model
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="./configuration.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Configuration
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="./monitoring.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Monitoring
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="./development.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Development and operations
 
     
   </span>
@@ -641,22 +667,24 @@
 <h2 id="how-records-reach-the-check">How records reach the check<a class="headerlink" href="#how-records-reach-the-check" title="Permanent link">&para;</a></h2>
 <ol>
 <li>The match runner selects the next <code>REQUEST_BATCH_SIZE</code> records whose <code>evaluated</code> flag is not yet <code>true</code> and which were not already ruled out via <code>has_eligible_abstract = false</code>.</li>
-<li>Records whose own abstract is shorter than <code>MIN_ABSTRACT_LENGTH</code> are flagged <code>has_eligible_abstract = false</code> and dropped — they can never produce a useful enhancement.</li>
+<li>Records whose own abstract is shorter than <code>MIN_ABSTRACT_LENGTH</code> are flagged <code>has_eligible_abstract = false</code> and dropped — they can never produce a useful enhancement. (The upper length bound is <em>not</em> part of this cheap pre-filter; over-long abstracts are rejected later by the decision tree below.)</li>
 <li>The remaining records are looked up in the repository <strong>by OpenAlex ID</strong> (<code>app/util/repository.py</code>). Every reference the lookup returns is checked independently — if a DOI/OpenAlex ID maps to more than one canonical reference, each one passes or fails on its own merits.</li>
 </ol>
 <h2 id="the-decision-tree">The decision tree<a class="headerlink" href="#the-decision-tree" title="Permanent link">&para;</a></h2>
 <pre class="mermaid"><code>flowchart TD
-    START(["matched cache record&lt;br/&gt;+ repository reference"]) --&gt; A{"cached abstract exists&lt;br/&gt;and ≥ MIN_ABSTRACT_LENGTH?"}
-    A -- "no" --&gt; REJ1(["reject&lt;br/&gt;&lt;i&gt;nothing worth submitting&lt;/i&gt;"])
+    START(["matched cache record&lt;br/&gt;+ repository reference"]) --&gt; A{"cached abstract exists and&lt;br/&gt;MIN_ABSTRACT_LENGTH ≤ length&lt;br/&gt;&amp;lt; MAX_ABSTRACT_LENGTH?"}
+    A -- "no" --&gt; REJ1(["reject&lt;br/&gt;&lt;i&gt;missing, too short or&lt;br/&gt;implausibly long abstract&lt;/i&gt;"])
     A -- yes --&gt; B{"reference has a DESTinY ID?"}
     B -- "no" --&gt; REJ2(["reject&lt;br/&gt;&lt;i&gt;defensive check&lt;/i&gt;"])
     B -- yes --&gt; C{"publication year within&lt;br/&gt;PUBLICATION_YEAR_TOLERANCE&lt;br/&gt;of any known year?&lt;br/&gt;&lt;i&gt;(skipped if either side unknown)&lt;/i&gt;"}
     C -- "no" --&gt; REJ3(["reject&lt;br/&gt;&lt;i&gt;probably not the same paper&lt;/i&gt;"])
     C -- "yes / unknown" --&gt; D{"normalised title within&lt;br/&gt;MAX_TITLE_SLOP of any&lt;br/&gt;known title?&lt;br/&gt;&lt;i&gt;(skipped if either side unknown)&lt;/i&gt;"}
     D -- "no" --&gt; REJ4(["reject&lt;br/&gt;&lt;i&gt;different paper despite&lt;br/&gt;shared identifier&lt;/i&gt;"])
-    D -- "yes / unknown" --&gt; E{"repository already has a&lt;br/&gt;sufficiently similar abstract&lt;br/&gt;(distance ≤ MAX_ABSTRACT_SLOP)?"}
-    E -- yes --&gt; REJ5(["reject&lt;br/&gt;&lt;i&gt;we already have it&lt;/i&gt;"])
+    D -- "yes / unknown" --&gt; E{"repository has a trustworthy&lt;br/&gt;abstract (MIN_ABSTRACT_LENGTH&lt;br/&gt;&amp;lt; length &amp;lt; MAX_ABSTRACT_LENGTH)?"}
     E -- "no" --&gt; OK(["accept —&lt;br/&gt;request enhancement"])
+    E -- yes --&gt; F{"USE_SLOP_FOR_ENHANCEMENT_CHECK&lt;br/&gt;enabled and distance &amp;gt;&lt;br/&gt;MAX_ABSTRACT_SLOP?"}
+    F -- yes --&gt; OK
+    F -- "no" --&gt; REJ5(["reject&lt;br/&gt;&lt;i&gt;we already have a&lt;br/&gt;good enough abstract&lt;/i&gt;"])
 
     style REJ1 fill:#f6d7d7,stroke:#b85450
     style REJ2 fill:#f6d7d7,stroke:#b85450
@@ -667,8 +695,12 @@
 <h3 id="about-the-comparisons">About the comparisons<a class="headerlink" href="#about-the-comparisons" title="Permanent link">&para;</a></h3>
 <ul>
 <li>Titles and abstracts are <strong>normalised before comparison</strong>: lowercased, all non-<code>a-z</code> characters removed. This catches formatting/encoding noise cheaply while keeping the logic honest about being a heuristic.</li>
-<li>The similarity measure is a <code>difflib.ndiff</code>-based per-character distance over the normalised strings, not a semantic check. Tuning the slop thresholds quickly becomes a slippery slope, so the thresholds are intentionally blunt (see <code>MAX_TITLE_SLOP</code> / <code>MAX_ABSTRACT_SLOP</code> in <a href="configuration.html">Configuration</a>).</li>
 <li>Year and title checks are skipped whenever either side has no information — absence of data is never treated as a mismatch.</li>
+<li>Abstract <strong>length is used as a trustworthiness signal on both sides</strong>: only abstracts between <code>MIN_ABSTRACT_LENGTH</code> and <code>MAX_ABSTRACT_LENGTH</code> count. An over-long repository abstract is treated as broken garbage and does not block an enhancement — and an over-long cached abstract is never submitted.</li>
+<li><strong>How a trustworthy repository abstract is judged depends on <code>USE_SLOP_FOR_ENHANCEMENT_CHECK</code>:</strong></li>
+<li><em>Off (default):</em> mere presence of a trustworthy abstract is enough — "someone already wrote something of plausible quality here, leave it alone". No similarity is computed.</li>
+<li><em>On:</em> the abstracts are compared, and only a <em>sufficiently similar</em> repository abstract (distance ≤ <code>MAX_ABSTRACT_SLOP</code>) suppresses the enhancement.</li>
+<li>The similarity measure (used for titles, and for abstracts in slop mode) is a <code>difflib.ndiff</code>-based per-character distance over the normalised strings, not a semantic check. Tuning the slop thresholds quickly becomes a slippery slope, so the thresholds are intentionally blunt (see <code>MAX_TITLE_SLOP</code> / <code>MAX_ABSTRACT_SLOP</code> in <a href="configuration.html">Configuration</a>).</li>
 </ul>
 <h2 id="what-gets-submitted">What gets submitted<a class="headerlink" href="#what-gets-submitted" title="Permanent link">&para;</a></h2>
 <p>For every accepted record the enhance runner submits <strong>two enhancements</strong> (see <code>Repository._records_to_enhancements</code>):</p>
@@ -700,7 +732,9 @@
 <ul>
 <li><strong>Match by identifier only.</strong> DOIs (and OpenAlex IDs) are not perfectly reliable, and production data shows roughly 1 in 500 DOIs held by two unmerged references. The year + title plausibility checks exist precisely so that a wrong identifier match fails the rules instead of getting a wrong abstract.</li>
 <li><strong>Title similarity was added</strong> compared to the first version of the robot (which only checked year tolerance and abstract mismatch) to reduce false-positive matches.</li>
-<li><strong>"Different enough" replaces "always submit".</strong> Rather than offering any abstract we have, we only submit when no sufficiently similar abstract exists in the repository already. We deliberately do <em>not</em> try to judge which abstract "looks better" (e.g. always preferring the longer one) — that decision belongs to a future best-abstract mechanism.</li>
+<li><strong>"Different enough" replaces "always submit".</strong> Rather than offering any abstract we have, we only submit when the repository lacks a trustworthy abstract for the reference — and, in the opt-in similarity mode, lacks a <em>similar</em> one. We deliberately do <em>not</em> try to judge which abstract "looks better" (e.g. always preferring the longer one) — that decision belongs to a future best-abstract mechanism.</li>
+<li><strong>Presence-only checking is the default.</strong> Comparing abstract text cheaply conflates "different wording of the same abstract" with "a genuinely better abstract", and any submission risks burying a good existing one. So the default mode submits only where no plausible abstract exists at all; <code>USE_SLOP_FOR_ENHANCEMENT_CHECK</code> restores the old distance-based comparison for deployments that want to push replacements.</li>
+<li><strong>Length bounds abstract trustworthiness in both directions.</strong> Very short payloads carry no information, and absurdly long ones are usually parsing garbage (affiliation dumps, whole first pages) — so abstracts outside <code>MIN_ABSTRACT_LENGTH</code> … <code>MAX_ABSTRACT_LENGTH</code> neither block enhancements nor get submitted.</li>
 <li><strong>Double submissions are acceptable.</strong> The repository handles duplicate enhancements; the robot does not spend effort preventing them.</li>
 <li><strong>No new references.</strong> The robot only enhances what already exists in the index.</li>
 </ul>
@@ -743,7 +777,7 @@
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="./development.html" class="md-footer__link md-footer__link--prev" aria-label="Previous: Development and operations">
+          <a href="./architecture.html" class="md-footer__link md-footer__link--prev" aria-label="Previous: Architecture">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-arrow-left" viewBox="0 0 24 24"><path d="m12 19-7-7 7-7M19 12H5"/></svg>
@@ -753,20 +787,20 @@
                 Previous
               </span>
               <div class="md-ellipsis">
-                Development and operations
+                Architecture
               </div>
             </div>
           </a>
         
         
           
-          <a href="./index.html" class="md-footer__link md-footer__link--next" aria-label="Next: Get started">
+          <a href="./data-model.html" class="md-footer__link md-footer__link--next" aria-label="Next: Data model">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Get started
+                Data model
               </div>
             </div>
             <div class="md-footer__button md-icon">
