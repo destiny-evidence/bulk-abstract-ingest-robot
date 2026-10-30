@@ -28,25 +28,25 @@ Currently tracked metrics:
 
 **Transfer state** (counted over `search_ingest`):
 
-| Metric                             | Counts                                                                 |
-| ---------------------------------- | ------------------------------------------------------------------------ |
-| `ingest_entries`                   | transfer requests in total                                               |
-| `ingest_entries_running`           | transfers claimed (`is_queueing`) but not finished                       |
-| `ingest_entries_finished`          | transfers completed (`is_queued`)                                        |
+| Metric                                | Counts                                                                  |
+| ------------------------------------- | ----------------------------------------------------------------------- |
+| `ingest_entries`                      | transfer requests in total                                              |
+| `ingest_entries_running`              | transfers claimed (`is_queueing`) but not finished                      |
+| `ingest_entries_finished`             | transfers completed (`is_queued`)                                       |
 | `ingest_entries_progress:<ingest_id>` | final size (`checkpoint_rows`) of one transfer — one series per request |
 
 **Record funnel** (counted over `records`, one metric per tracking flag — see [Data model → Tracking columns](data-model.md#tracking-columns)):
 
-| Metric                                      | Counts                                                  |
-| ------------------------------------------- | ----------------------------------------------------------- |
-| `records_total`                             | rows in the cache                                           |
-| `records_has_eligible_abstract`             | rows whose abstract passed the length pre-filter            |
-| `records_evaluated`                         | rows checked against the repository                         |
-| `records_found_destiny_reference`           | rows matched to a DESTinY reference                         |
-| `records_abstract_enhancement_required`     | rows the [enhancement rules](matching.md) accepted          |
-| `records_enhancement_requested`             | rows an enhancement request was sent for                    |
-| `records_enhancement_submitted`             | rows whose enhancement actually reached the repository      |
-| `records_encountered_parsing_error`         | rows whose raw payload could not be parsed                  |
+| Metric                                  | Counts                                                 |
+| --------------------------------------- | ------------------------------------------------------ |
+| `records_total`                         | rows in the cache                                      |
+| `records_has_eligible_abstract`         | rows whose abstract passed the length pre-filter       |
+| `records_evaluated`                     | rows checked against the repository                    |
+| `records_found_destiny_reference`       | rows matched to a DESTinY reference                    |
+| `records_abstract_enhancement_required` | rows the [enhancement rules](matching.md) accepted     |
+| `records_enhancement_requested`         | rows an enhancement request was sent for               |
+| `records_enhancement_submitted`         | rows whose enhancement actually reached the repository |
+| `records_encountered_parsing_error`     | rows whose raw payload could not be parsed             |
 
 To add a metric, append an `INSERT INTO monitoring SELECT now(), '<key>', count(...), 'orig' FROM ...` statement to `tracking.sql` — and add a matching `CASE WHEN` column to `monitor.sql`, whose pivot columns are hardcoded.
 
@@ -59,7 +59,7 @@ Three housekeeping passes in one script:
 3. **Purge cache rows that no longer matter.** Submitted or permanently ineligible records older than 14 days are deleted from `records`, so the cache does not grow forever while the raw source data stays in (cold) blob storage anyway and can be re-ingested via a new `search_ingest` row.
 
 !!! warning "The purge can outrun the match runner"
-    `abstract_enhancement_required` defaults to `false` — so records that were *never evaluated* (e.g. the robot was down while a large transfer ran) are also deleted once they are 14 days old, and will never be retried. Lengthen the interval if your batches may lag that far behind.
+`abstract_enhancement_required` defaults to `false` — so records that were _never evaluated_ (e.g. the robot was down while a large transfer ran) are also deleted once they are 14 days old, and will never be retried. Lengthen the interval if your batches may lag that far behind.
 
 ## Viewing — `monitor.sql` (ad hoc)
 
@@ -70,4 +70,4 @@ psql postgresql://pguser:password@127.0.0.1:5432/references -f scripts/monitor.s
 ```
 
 !!! info "Optional Evidence dashboard"
-    An OpenTelemetry setup exists in the Docker image (`opentelemetry-*` deps) but is not configured end to end.
+An OpenTelemetry setup exists in the Docker image (`opentelemetry-*` deps) but is not configured end to end.
