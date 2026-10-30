@@ -1,3 +1,14 @@
 ---
 # Markdown linting rules to ignore.
 MD013: false #  line-length
+
+# Disable or adjust rules that interfere with Zensical/MkDocs admonition boxes
+default: true
+
+# Force code blocks to use fenced style (```) so 4-space admonition content
+# isn't misidentified and rewritten as broken indented code blocks
+MD046:
+  style: fenced
+
+# Disable strict list indentation checks so 4-space indents are preserved
+MD007: false

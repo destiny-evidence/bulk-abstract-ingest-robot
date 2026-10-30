@@ -6,8 +6,9 @@ The robot owns its Postgres database and treats it as the durable work queue bet
 
 One row per raw source record (one JSONL line from an export file). The record is stored **unparsed** and only converted into bibliographic fields when a runner needs it — a thin per-format parser (`ParsedRecord._parse_record_kwargs`) maps the raw payload of a given `format` (currently `scopus_api`) onto title, abstract, publication year and identifiers.
 
+<!-- prettier-ignore -->
 ??? info "Why raw-first storage?"
-Converting on read keeps the ingestion step trivial and lets converter fixes be applied retroactively without re-fetching source data. The raw JSON also travels to the repository as a `RawEnhancement`, so nothing is lost. Formats beyond Scopus are explicitly out of scope for now.
+    Converting on read keeps the ingestion step trivial and lets converter fixes be applied retroactively without re-fetching source data. The raw JSON also travels to the repository as a `RawEnhancement`, so nothing is lost. Formats beyond Scopus are explicitly out of scope for now.
 
 ### Identifier columns
 

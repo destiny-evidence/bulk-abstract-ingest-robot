@@ -103,7 +103,7 @@ To run against a real deployment, register the robot following [the ODS robot-re
 Before committing, run the pre-commit hooks (formatting, linting, type checks) to keep diffs minimal:
 
 ```sh
-uv run pre-commit install             # once
+uv run pre-commit install             # once (optional)
 uv run pre-commit run --all-files     # manually
 ```
 
@@ -114,11 +114,9 @@ Hooks are configured in `.pre-commit-config.yaml`.
 The docs site lives in `docs/` and is built with [Zensical](https://zensical.org) (Material-compatible). Sources are in `docs/docs/`, configuration in `docs/zensical.toml`.
 
 ```sh
-uv run zensical serve    # live preview at http://127.0.0.1:8000
-uv run zensical build --clean
+uv run zensical serve --config-file docs/zensical.toml  # live preview at http://127.0.0.1:8000
+uv run zensical build --config-file docs/zensical.toml --clean
 ```
-
-Mermaid diagrams are written as ` ```mermaid ` code blocks directly in the Markdown.
 
 ## Operations notes
 

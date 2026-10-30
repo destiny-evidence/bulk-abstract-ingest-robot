@@ -58,8 +58,9 @@ Three housekeeping passes in one script:
 2. **Cap the table size.** Only the 10,000 most recent `monitoring` rows survive each run.
 3. **Purge cache rows that no longer matter.** Submitted or permanently ineligible records older than 14 days are deleted from `records`, so the cache does not grow forever while the raw source data stays in (cold) blob storage anyway and can be re-ingested via a new `search_ingest` row.
 
+<!-- prettier-ignore -->
 !!! warning "The purge can outrun the match runner"
-`abstract_enhancement_required` defaults to `false` — so records that were _never evaluated_ (e.g. the robot was down while a large transfer ran) are also deleted once they are 14 days old, and will never be retried. Lengthen the interval if your batches may lag that far behind.
+    `abstract_enhancement_required` defaults to `false` — so records that were _never evaluated_ (e.g. the robot was down while a large transfer ran) are also deleted once they are 14 days old, and will never be retried. Lengthen the interval if your batches may lag that far behind.
 
 ## Viewing — `monitor.sql` (ad hoc)
 
@@ -69,5 +70,6 @@ Three housekeeping passes in one script:
 psql postgresql://pguser:password@127.0.0.1:5432/references -f scripts/monitor.sql
 ```
 
+<!-- prettier-ignore -->
 !!! info "Optional Evidence dashboard"
-An OpenTelemetry setup exists in the Docker image (`opentelemetry-*` deps) but is not configured end to end.
+    An OpenTelemetry setup exists in the Docker image (`opentelemetry-*` deps) but is not configured end to end.

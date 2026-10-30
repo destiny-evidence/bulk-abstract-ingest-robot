@@ -59,8 +59,9 @@ For every accepted record the enhance runner submits **two enhancements** (see `
 
 Both are submitted with `RESTRICTED` visibility and a provenance string built from `REPOSITORY_PROVENANCE` and the source database, e.g. `PIK Metadata Cache (SCOPUS)`.
 
+<!-- prettier-ignore -->
 !!! note "Why submit the raw payload even when the abstract is rejected?"
-It isn't — currently raw enhancements accompany accepted abstracts only. The open question of attaching `RawEnhancement`s to _all_ plausible matches (not just those with a new abstract) was raised in [issue #7](https://github.com/destiny-evidence/bulk-abstract-ingest-robot/issues/7) and is not implemented.
+  It isn't — currently raw enhancements accompany accepted abstracts only. The open question of attaching `RawEnhancement`s to _all_ plausible matches (not just those with a new abstract) was raised in [issue #7](https://github.com/destiny-evidence/bulk-abstract-ingest-robot/issues/7) and is not implemented.
 
 ## Design rationale
 

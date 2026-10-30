@@ -15,8 +15,9 @@ All configuration is read from environment variables via `pydantic-settings` (`a
 | `ENV`                             | `staging`                                     | Deployment label (`local`, `development`, `staging`, `test`). Informational — the robot always authenticates.                                     |
 | `REPOSITORY_PROVENANCE`           | `PIK Metadata Cache`                          | Provenance/source string attached to submitted enhancements.                                                                                      |
 
+<!-- prettier-ignore -->
 !!! info "Robot identity"
-`ROBOT_NAME` and `ROBOT_VERSION` are derived from `pyproject.toml` and only need overriding in exceptional cases.
+    `ROBOT_NAME` and `ROBOT_VERSION` are derived from `pyproject.toml` and only need overriding in exceptional cases.
 
 ## Database (metadata cache)
 
@@ -28,8 +29,9 @@ All configuration is read from environment variables via `pydantic-settings` (`a
 | `DB_USER`     | `pguser`     | Database user.                                    |
 | `DB_PASSWORD` | `password`   | Database password.                                |
 
+<!-- prettier-ignore -->
 !!! warning "Keep `DB_NAME` consistent"
-The code default is `references`, but the `postgres` service in `compose.yaml` creates the database from `${DB_NAME:-meta_cache}`. Set `DB_NAME` explicitly in `.env` so the robot and the container agree.
+    The code default is `references`, but the `postgres` service in `compose.yaml` creates the database from `${DB_NAME:-meta_cache}`. Set `DB_NAME` explicitly in `.env` so the robot and the container agree.
 
 ## Runner pacing & batching
 
