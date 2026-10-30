@@ -112,24 +112,6 @@ services:
       postgres:
         condition: service_healthy
     restart: unless-stopped
-  monitoring:
-    user: "${UID:-1000}:${GID:-1000}"
-    image: node:20-alpine
-    working_dir: /app
-    command: sh -c "npm install && npx evidence dev --host 0.0.0.0 --port 3000"
-    ports:
-      - "3000:3000"
-    env_file:
-      - ${ENV_FILE:-.config/.env.example}
-    environment:
-      - HOST=0.0.0.0
-      - PORT=3000
-      - NPM_CONFIG_CACHE=/tmp/.npm
-    volumes:
-      - ./monitoring:/app
-    depends_on:
-      postgres:
-        condition: service_healthy
-    restart: unless-stopped
+
 volumes:
   postgres_data:

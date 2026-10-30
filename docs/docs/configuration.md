@@ -1,6 +1,6 @@
 # Configuration
 
-All configuration is read from environment variables via `pydantic-settings` (`app/util/config.py`). Settings are loaded from (in order of increasing precedence) `.env.secret`, `.env`, and the actual process environment. Unknown variables are ignored. The canonical list of options is the `Settings` class — the table below mirrors it.
+All configuration is read from environment variables via `pydantic-settings` (`app/util/config.py`). Settings are loaded from (in order of increasing precedence) `.config/.env.secret`, `.config/.env`, `.env.secret`, `.env`, and the actual process environment. Unknown variables are ignored. The canonical list of options is the `Settings` class — the table below mirrors it.
 
 ## Repository & authentication
 
@@ -47,12 +47,14 @@ The code default is `references`, but the `postgres` service in `compose.yaml` c
 
 These feed the plausibility checks described on the [Enhancement rules](matching.md) page:
 
-| Variable                     | Default | Description                                                         |
-| ---------------------------- | ------- | ------------------------------------------------------------------- |
-| `MIN_ABSTRACT_LENGTH`        | `200`   | Shorter abstracts are never considered (in either direction).       |
-| `MAX_TITLE_SLOP`             | `10`    | Max normalised edit distance for titles to count as the same paper. |
-| `MAX_ABSTRACT_SLOP`          | `100`   | Max normalised edit distance for abstracts to count as identical.   |
-| `PUBLICATION_YEAR_TOLERANCE` | `2`     | Years are allowed to be this many years apart when both are known.  |
+| Variable                         | Default | Description                                                                                                                           |
+| -------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `MIN_ABSTRACT_LENGTH`            | `200`   | Shorter abstracts are never considered (in either direction).                                                                         |
+| `MAX_ABSTRACT_LENGTH`            | `10000` | Abstracts this long or longer are considered untrustworthy (in either direction): neither submitted nor treated as "already covered". |
+| `MAX_TITLE_SLOP`                 | `10`    | Max normalised edit distance for titles to count as the same paper.                                                                   |
+| `USE_SLOP_FOR_ENHANCEMENT_CHECK` | `false` | Off: any trustworthy repository abstract counts as "we already have it". On: abstracts are compared and only a _similar_ one counts.  |
+| `MAX_ABSTRACT_SLOP`              | `100`   | Max normalised edit distance for abstracts to count as identical. Only used when `USE_SLOP_FOR_ENHANCEMENT_CHECK` is enabled.         |
+| `PUBLICATION_YEAR_TOLERANCE`     | `2`     | Years are allowed to be this many years apart when both are known.                                                                    |
 
 ## Transfer (queue runner)
 

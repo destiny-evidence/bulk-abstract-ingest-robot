@@ -10,9 +10,6 @@ The robot is a set of small, independent **runner** processes that never talk to
 | **Match runner**   | `app/robots/match.py`   | `MATCH_INTERVAL_SECONDS` (default 30 s)   | Takes a batch of not-yet-evaluated records, looks them up in the repository by OpenAlex ID, filters them through the [enhancement rules](matching.md) and requests enhancements. |
 | **Enhance runner** | `app/robots/enhance.py` | `ENHANCE_INTERVAL_SECONDS` (default 30 s) | Polls the repository for approved enhancement batches, fetches the abstracts from the cache and submits the enhancements.                                                        |
 
-!!! info "Queue runner status"
-The queue runner is implemented but not yet wired into `run_robot.py` (the CLI currently accepts `match` and `enhance`). It is also not part of `compose.yaml` yet. See [PR #8](https://github.com/destiny-evidence/bulk-abstract-ingest-robot/pull/8).
-
 ## End-to-end sequence
 
 ```mermaid
@@ -81,4 +78,4 @@ Two mechanisms allow multiple worker processes to run without double work:
 
 - **[Academic API Importer](https://github.com/destiny-evidence/academic-api-importer)** — retrieves the large result sets from vendor APIs (Scopus today) and uploads them to blob storage; its "ingest bridge" is intended to feed the `search_ingest` table so the transfer starts automatically.
 - **DESTinY repository** — the target index. Interaction is via `destiny_sdk`: an HMAC-signed `RobotClient` for polling/submitting enhancement batches and a Keycloak-OAuth `OAuthClient` for reference lookups and enhancement requests. See [Authentication](development.md#authentication-against-the-destiny-repository).
-- **`scripts/clean_db.sql`** — periodically purges records that are submitted or will never be submitted (raw data stays cheaply available in cold blob storage if ever needed again).
+- **Monitoring pipeline** — `scripts/tracking.sql` records counters into a `monitoring` table every minute (via the `sql-cron` Compose service), `scripts/compact.sql` aggregates them daily. See [Monitoring](monitoring.md).

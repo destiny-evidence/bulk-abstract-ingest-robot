@@ -67,12 +67,13 @@ Each runner runs its own endless loop and can be restarted at any time — all p
 - [**Data model**](data-model.md) — the two tables (`search_ingest`, `records`) and their tracking columns.
 - [**Enhancement rules**](matching.md) — when an abstract is considered worth submitting, including the decision tree.
 - [**Configuration**](configuration.md) — all environment variables and logging options.
+- [**Monitoring**](monitoring.md) — how progress is tracked in the database, compacted, and viewed.
 - [**Development & operations**](development.md) — setting up a dev environment, running the robot, Docker Compose, deployment notes.
 
 ## Project structure
 
 ```plain
-run_robot.py            # Typer CLI entry point (tasks: match, enhance)
+run_robot.py            # Typer CLI entry point (tasks: match, enhance, queue)
 app/
 ├── robots/             # The runners — one loop task per module
 │   ├── queue.py        #   blob storage → records table ("transfer")
@@ -88,6 +89,7 @@ app/
     ├── engine.py       #   async engine/session helpers
     ├── store.py        #   AbstractStore — queries for match/enhance runners
     └── ingest.py       #   IngestTracker — transfer requests, checkpoints, locks
+scripts/                # Ops SQL — metrics tracking, compaction, ad-hoc monitoring
 ```
 
 Both tables are created automatically by SQLModel on startup, so a plain Postgres instance (or the `postgres` service in `compose.yaml`) is all that's needed.

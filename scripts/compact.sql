@@ -36,7 +36,7 @@ DELETE FROM monitoring
 WHERE ctid IN (
     SELECT ctid
     FROM ranked_rows
-    WHERE rn > 10000
+    WHERE rn > 1000000
 );
 
 -- Delete records that are older and already submitted or will never be submitted

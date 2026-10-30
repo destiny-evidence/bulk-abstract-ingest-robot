@@ -1,6 +1,6 @@
 # Data model
 
-The robot owns its Postgres database and treats it as the durable work queue between runners. There are exactly two tables, both created automatically from the SQLModel definitions in `app/db/schemas.py` at startup (`SQLModel.metadata.create_all`).
+The robot owns its Postgres database and treats it as the durable work queue between runners. There are exactly two tables owned by the runners, both created automatically from the SQLModel definitions in `app/db/schemas.py` at startup (`SQLModel.metadata.create_all`). The ops scripts additionally maintain a third, plain key/value `monitoring` table (created by `scripts/tracking.sql`, see [Monitoring](monitoring.md)).
 
 ## `records` — the metadata cache
 
@@ -83,20 +83,3 @@ stateDiagram-v2
 ```
 
 The queue runner always looks at **open** requests first (`is_queueing = false AND is_queued = false`), then at partially transferred ones, and only processes a request it can lock exclusively. This makes multiple queue-runner processes safe to run side by side, and makes restarting an interrupted file the normal case rather than an error.
-
-## Housekeeping
-
-`scripts/clean_db.sql` purges rows that no longer matter:
-
-```sql
--- Delete records that are older and already submitted or will never be submitted
-DELETE
-FROM records
-WHERE (enhancement_submitted = TRUE OR abstract_enhancement_required = FALSE)
-  AND created_at < NOW() - INTERVAL '14 days';
-```
-
-!!! warning
-Note that `abstract_enhancement_required` defaults to `false`, so this also removes records that were never evaluated if they are older than the cutoff. Run it on a schedule (or manually) only when you are sure those records should not be retried.
-
-Keeping the cache small is cheap: the raw data remains available in (cold) blob storage and can be re-ingested by adding a new `search_ingest` row.

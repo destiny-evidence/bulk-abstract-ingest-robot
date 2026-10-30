@@ -45,9 +45,10 @@ Run a single runner:
 ```sh
 uv run python run_robot.py match      # evaluate cached records against the repository
 uv run python run_robot.py enhance    # fulfil approved enhancement batches
+uv run python run_robot.py queue      # stream export files from blob storage into the cache
 ```
 
-Run the whole Compose stack (database plus both runners):
+Run the whole Compose stack (database, all three runners, plus monitoring helpers):
 
 ```sh
 docker compose up --build
@@ -55,20 +56,21 @@ docker compose up --build
 
 Services in `compose.yaml`:
 
-| Service    | Runs                                                              |
-| ---------- | ----------------------------------------------------------------- |
-| `postgres` | Postgres 18, volume-persisted, port published to `127.0.0.1:5432` |
-| `match`    | `python run_robot.py match` with `DB_HOST=postgres`               |
-| `enhance`  | `python run_robot.py enhance` with `DB_HOST=postgres`             |
+| Service      | Runs                                                                                                          |
+| ------------ | ------------------------------------------------------------------------------------------------------------- |
+| `postgres`   | Postgres 18, volume-persisted, port published to `127.0.0.1:5432`                                             |
+| `match`      | `python run_robot.py match` with `DB_HOST=postgres`                                                           |
+| `enhance`    | `python run_robot.py enhance` with `DB_HOST=postgres`                                                         |
+| `queue`      | `python run_robot.py queue` with `DB_HOST=postgres` and the shared locks volume mounted at `/app/.data/locks` |
+| `locks-init` | one-shot: creates the host locks directory with the right ownership before `queue` starts                     |
+| `sql-cron`   | runs `scripts/tracking.sql` every minute and `scripts/compact.sql` daily (see [Monitoring](monitoring.md))    |
 
 ```sh
 docker compose logs -f match
 docker compose logs -f enhance
+docker compose logs -f queue
 docker compose down
 ```
-
-!!! info "Queue runner not wired up yet"
-`app/robots/queue.py` implements the blob-storage transfer loop, but it is not yet selectable from `run_robot.py` or included in `compose.yaml`. Until then, feed the `records` table by other means, or add a `search_ingest` row and run the loop manually. See [PR #8](https://github.com/destiny-evidence/bulk-abstract-ingest-robot/pull/8).
 
 ### Feeding data manually
 
@@ -121,6 +123,6 @@ Mermaid diagrams are written as ` ```mermaid ` code blocks directly in the Markd
 ## Operations notes
 
 - **Restart safety:** every runner can be killed and restarted at any time — see [Architecture → Crash resilience](architecture.md#crash-resilience).
-- **Cleanup:** run `scripts/clean_db.sql` on a schedule to purge submitted/ineligible records older than 14 days (see [Data model → Housekeeping](data-model.md#housekeeping)).
-- **Monitoring:** the only built-in surface is the log stream (progress counts per loop iteration) plus the database counters shown above. An OpenTelemetry setup exists in the Docker image (`opentelemetry-*` deps) but is not configured end to end.
+- **Cleanup:** automatic — `scripts/compact.sql` (via `sql-cron`) purges submitted or ineligible records older than 14 days, see [Monitoring → Compacting](monitoring.md#compacting-compactsql-daily-at-1000).
+- **Monitoring:** metric collection, compaction and the snapshot query are described on the [Monitoring](monitoring.md) page.
 - **Deployment:** current deployment runs the Compose stack (or bare processes) on a PIK VM with a hosted Postgres. `infra/` contains Azure Container App Terraform scaffolding carried over from the toy-robot template — its variable names predate the current `Settings` and need updating before use.

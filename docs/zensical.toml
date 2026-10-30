@@ -5,14 +5,17 @@ extra_javascript = [
     # https://unpkg.com/mermaid@11.17.2/dist/mermaid.min.js
     "assets/mermaid.min.js",
 ]
+# toml-sort: disable
 nav = [
-    { "Architecture" = "architecture.md" },
-    { "Configuration" = "configuration.md" },
-    { "Data model" = "data-model.md" },
-    { "Development and operations" = "development.md" },
-    { "Enhancement rules" = "matching.md" },
     { "Get started" = "index.md" },
+    { "Architecture" = "architecture.md" },
+    { "Enhancement rules" = "matching.md" },
+    { "Data model" = "data-model.md" },
+    { "Configuration" = "configuration.md" },
+    { "Monitoring" = "monitoring.md" },
+    { "Development and operations" = "development.md" },
 ]
+# toml-sort: enable
 repo_name = "destiny-evidence/bulk-abstract-ingest-robot"
 repo_url = "https://github.com/destiny-evidence/bulk-abstract-ingest-robot"
 site_author = "Tim Repke"
