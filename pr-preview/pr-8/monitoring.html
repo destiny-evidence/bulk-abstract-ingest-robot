@@ -700,18 +700,20 @@
 <li><strong>Cap the table size.</strong> Only the 10,000 most recent <code>monitoring</code> rows survive each run.</li>
 <li><strong>Purge cache rows that no longer matter.</strong> Submitted or permanently ineligible records older than 14 days are deleted from <code>records</code>, so the cache does not grow forever while the raw source data stays in (cold) blob storage anyway and can be re-ingested via a new <code>search_ingest</code> row.</li>
 </ol>
+<!-- prettier-ignore -->
 <div class="admonition warning">
 <p class="admonition-title">The purge can outrun the match runner</p>
-</div>
 <p><code>abstract_enhancement_required</code> defaults to <code>false</code> — so records that were <em>never evaluated</em> (e.g. the robot was down while a large transfer ran) are also deleted once they are 14 days old, and will never be retried. Lengthen the interval if your batches may lag that far behind.</p>
+</div>
 <h2 id="viewing-monitorsql-ad-hoc">Viewing — <code>monitor.sql</code> (ad hoc)<a class="headerlink" href="#viewing-monitorsql-ad-hoc" title="Permanent link">&para;</a></h2>
 <p><code>monitor.sql</code> pivots the newest <code>monitoring</code> snapshots into a wide table — one row per minute, one column per metric, newest first (last 500 rows):</p>
 <div class="language-sh highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>psql<span class="w"> </span>postgresql://pguser:password@127.0.0.1:5432/references<span class="w"> </span>-f<span class="w"> </span>scripts/monitor.sql
 </span></code></pre></div>
+<!-- prettier-ignore -->
 <div class="admonition info">
 <p class="admonition-title">Optional Evidence dashboard</p>
-</div>
 <p>An OpenTelemetry setup exists in the Docker image (<code>opentelemetry-*</code> deps) but is not configured end to end.</p>
+</div>
 
 
 

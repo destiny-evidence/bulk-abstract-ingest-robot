@@ -849,16 +849,15 @@
 <p>To run against a real deployment, register the robot following <a href="https://destiny-evidence.github.io/destiny-repository/procedures/robot-registration.html">the ODS robot-registration procedure</a>; registration yields the <code>ROBOT_ID</code> and <code>ROBOT_SECRET</code>. Keycloak client credentials are provisioned separately by the deployment.</p>
 <h2 id="code-quality">Code quality<a class="headerlink" href="#code-quality" title="Permanent link">&para;</a></h2>
 <p>Before committing, run the pre-commit hooks (formatting, linting, type checks) to keep diffs minimal:</p>
-<div class="language-sh highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>uv<span class="w"> </span>run<span class="w"> </span>pre-commit<span class="w"> </span>install<span class="w">             </span><span class="c1"># once</span>
+<div class="language-sh highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>uv<span class="w"> </span>run<span class="w"> </span>pre-commit<span class="w"> </span>install<span class="w">             </span><span class="c1"># once (optional)</span>
 </span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>uv<span class="w"> </span>run<span class="w"> </span>pre-commit<span class="w"> </span>run<span class="w"> </span>--all-files<span class="w">     </span><span class="c1"># manually</span>
 </span></code></pre></div>
 <p>Hooks are configured in <code>.pre-commit-config.yaml</code>.</p>
 <h2 id="documentation">Documentation<a class="headerlink" href="#documentation" title="Permanent link">&para;</a></h2>
 <p>The docs site lives in <code>docs/</code> and is built with <a href="https://zensical.org">Zensical</a> (Material-compatible). Sources are in <code>docs/docs/</code>, configuration in <code>docs/zensical.toml</code>.</p>
-<div class="language-sh highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>uv<span class="w"> </span>run<span class="w"> </span>zensical<span class="w"> </span>serve<span class="w">    </span><span class="c1"># live preview at http://127.0.0.1:8000</span>
-</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>uv<span class="w"> </span>run<span class="w"> </span>zensical<span class="w"> </span>build<span class="w"> </span>--clean
+<div class="language-sh highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>uv<span class="w"> </span>run<span class="w"> </span>zensical<span class="w"> </span>serve<span class="w"> </span>--config-file<span class="w"> </span>docs/zensical.toml<span class="w">  </span><span class="c1"># live preview at http://127.0.0.1:8000</span>
+</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>uv<span class="w"> </span>run<span class="w"> </span>zensical<span class="w"> </span>build<span class="w"> </span>--config-file<span class="w"> </span>docs/zensical.toml<span class="w"> </span>--clean
 </span></code></pre></div>
-<p>Mermaid diagrams are written as <code>```mermaid</code> code blocks directly in the Markdown.</p>
 <h2 id="operations-notes">Operations notes<a class="headerlink" href="#operations-notes" title="Permanent link">&para;</a></h2>
 <ul>
 <li><strong>Restart safety:</strong> every runner can be killed and restarted at any time — see <a href="architecture.html#crash-resilience">Architecture → Crash resilience</a>.</li>

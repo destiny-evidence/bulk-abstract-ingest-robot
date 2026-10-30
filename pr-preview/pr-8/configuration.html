@@ -722,10 +722,11 @@
 </tr>
 </tbody>
 </table>
+<!-- prettier-ignore -->
 <div class="admonition info">
 <p class="admonition-title">Robot identity</p>
-</div>
 <p><code>ROBOT_NAME</code> and <code>ROBOT_VERSION</code> are derived from <code>pyproject.toml</code> and only need overriding in exceptional cases.</p>
+</div>
 <h2 id="database-metadata-cache">Database (metadata cache)<a class="headerlink" href="#database-metadata-cache" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -763,10 +764,11 @@
 </tr>
 </tbody>
 </table>
+<!-- prettier-ignore -->
 <div class="admonition warning">
 <p class="admonition-title">Keep <code>DB_NAME</code> consistent</p>
-</div>
 <p>The code default is <code>references</code>, but the <code>postgres</code> service in <code>compose.yaml</code> creates the database from <code>${DB_NAME:-meta_cache}</code>. Set <code>DB_NAME</code> explicitly in <code>.env</code> so the robot and the container agree.</p>
+</div>
 <h2 id="runner-pacing-batching">Runner pacing &amp; batching<a class="headerlink" href="#runner-pacing-batching" title="Permanent link">&para;</a></h2>
 <table>
 <thead>

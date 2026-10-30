@@ -660,11 +660,12 @@
 <li><em>no</em> heavy transformation — raw source data is stored as-is and parsed lazily, with a thin per-format parser,</li>
 <li><em>no</em> data fusion — new metadata is not merged and existing values are not replaces by picking the "better" one.</li>
 </ul>
+<!-- prettier-ignore -->
 <div class="admonition warning">
 <p class="admonition-title">Temporary project</p>
-</div>
 <p>This robot is meant to be deprecated once a complete ingestion pipeline with proper deduplication exists.
 Changes should be weighed against that end goal (see the discussion in <a href="https://github.com/destiny-evidence/bulk-abstract-ingest-robot/issues/7">issue #7</a>).</p>
+</div>
 <h2 id="the-flow-at-a-glance">The flow at a glance<a class="headerlink" href="#the-flow-at-a-glance" title="Permanent link">&para;</a></h2>
 <p>Three small runner processes work through the pipeline, communicating only via the Postgres database and the repository:</p>
 <pre class="mermaid"><code>flowchart TD

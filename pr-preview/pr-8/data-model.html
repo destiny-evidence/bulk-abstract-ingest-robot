@@ -696,10 +696,11 @@
 <p>The robot owns its Postgres database and treats it as the durable work queue between runners. There are exactly two tables owned by the runners, both created automatically from the SQLModel definitions in <code>app/db/schemas.py</code> at startup (<code>SQLModel.metadata.create_all</code>). The ops scripts additionally maintain a third, plain key/value <code>monitoring</code> table (created by <code>scripts/tracking.sql</code>, see <a href="monitoring.html">Monitoring</a>).</p>
 <h2 id="records-the-metadata-cache"><code>records</code> — the metadata cache<a class="headerlink" href="#records-the-metadata-cache" title="Permanent link">&para;</a></h2>
 <p>One row per raw source record (one JSONL line from an export file). The record is stored <strong>unparsed</strong> and only converted into bibliographic fields when a runner needs it — a thin per-format parser (<code>ParsedRecord._parse_record_kwargs</code>) maps the raw payload of a given <code>format</code> (currently <code>scopus_api</code>) onto title, abstract, publication year and identifiers.</p>
+<!-- prettier-ignore -->
 <details class="info">
 <summary>Why raw-first storage?</summary>
-</details>
 <p>Converting on read keeps the ingestion step trivial and lets converter fixes be applied retroactively without re-fetching source data. The raw JSON also travels to the repository as a <code>RawEnhancement</code>, so nothing is lost. Formats beyond Scopus are explicitly out of scope for now.</p>
+</details>
 <h3 id="identifier-columns">Identifier columns<a class="headerlink" href="#identifier-columns" title="Permanent link">&para;</a></h3>
 <table>
 <thead>
