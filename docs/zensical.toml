@@ -53,6 +53,7 @@ pymdownx.details = {}
 # pymdownx.emoji.emoji_index = "zensical.extensions.emoji.twemoji"
 pymdownx.emoji.emoji_generator = "pymdownx.emoji.to_alt"
 pymdownx.emoji.emoji_index = "pymdownx.emoji.twemoji"
+pymdownx.emoji.options.custom_icons = ["overrides/.icons"]
 pymdownx.highlight.anchor_linenums = true
 pymdownx.highlight.line_spans = "__span"
 pymdownx.highlight.pygments_lang_class = true
@@ -69,7 +70,6 @@ pymdownx.tabbed.alternate_style = true
 pymdownx.tabbed.combine_header_slug = true
 pymdownx.tasklist.custom_checkbox = true
 pymdownx.tilde = {}
-pymdownx.emoji.options.custom_icons = ["overrides/.icons"]
 toc.permalink = true
 
 [project.plugins.offline]
