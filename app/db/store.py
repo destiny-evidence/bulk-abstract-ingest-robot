@@ -44,7 +44,7 @@ class AbstractStore:
             for record in batch:
                 parsed_record = ParsedRecordExtra.from_record(record)
                 if len(parsed_record.abstract or "") < self.settings.min_abstract_length:
-                    parsed_record.has_eligible_abstract = False
+                    record.has_eligible_abstract = False
                 else:
                     parsed_records.append(parsed_record)
             await session.commit()
