@@ -307,7 +307,7 @@ requires-dist = [
 
 [package.metadata.requires-dev]
 dev = [
-    { name = "aiosqlite", specifier = ">=0.22.1" },
+    { name = "aiosqlite", specifier = "~=0.22.1" },
     { name = "mypy", specifier = "~=2.4.0" },
     { name = "pre-commit", specifier = "~=4.7.0" },
     { name = "pytest", specifier = "~=9.1.1" },
