@@ -47,16 +47,17 @@ All configuration is read from environment variables via `pydantic-settings` (`a
 
 ## Enhancement rules
 
-These feed the plausibility checks described on the [Enhancement rules](matching.md) page:
+These decide which records the match runner even considers, and how it judges them (see the [Enhancement rules](matching.md) page):
 
-| Variable                         | Default | Description                                                                                                                           |
-| -------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| `MIN_ABSTRACT_LENGTH`            | `200`   | Shorter abstracts are never considered (in either direction).                                                                         |
-| `MAX_ABSTRACT_LENGTH`            | `10000` | Abstracts this long or longer are considered untrustworthy (in either direction): neither submitted nor treated as "already covered". |
-| `MAX_TITLE_SLOP`                 | `10`    | Max normalised edit distance for titles to count as the same paper.                                                                   |
-| `USE_SLOP_FOR_ENHANCEMENT_CHECK` | `false` | Off: any trustworthy repository abstract counts as "we already have it". On: abstracts are compared and only a _similar_ one counts.  |
-| `MAX_ABSTRACT_SLOP`              | `100`   | Max normalised edit distance for abstracts to count as identical. Only used when `USE_SLOP_FOR_ENHANCEMENT_CHECK` is enabled.         |
-| `PUBLICATION_YEAR_TOLERANCE`     | `2`     | Years are allowed to be this many years apart when both are known.                                                                    |
+| Variable                         | Default | Description                                                                                                                                                                                                                                                                                                               |
+| -------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `MATCH_IDENTIFIER`               | `doi`   | Identifier used to search and match queued records against ODS references: `doi` or `open_alex`. Other DESTinY identifier types are not implemented yet, and `open_alex` matches nothing while transfers leave that column empty (see [Matching → How records reach the check](matching.md#how-records-reach-the-check)). |
+| `MIN_ABSTRACT_LENGTH`            | `200`   | Shorter abstracts are never considered (in either direction).                                                                                                                                                                                                                                                             |
+| `MAX_ABSTRACT_LENGTH`            | `10000` | Abstracts this long or longer are considered untrustworthy (in either direction): neither submitted nor treated as "already covered".                                                                                                                                                                                     |
+| `MAX_TITLE_SLOP`                 | `10`    | Max normalised edit distance for titles to count as the same paper.                                                                                                                                                                                                                                                       |
+| `USE_SLOP_FOR_ENHANCEMENT_CHECK` | `false` | Off: any trustworthy repository abstract counts as "we already have it". On: abstracts are compared and only a _similar_ one counts.                                                                                                                                                                                      |
+| `MAX_ABSTRACT_SLOP`              | `100`   | Max normalised edit distance for abstracts to count as identical. Only used when `USE_SLOP_FOR_ENHANCEMENT_CHECK` is enabled.                                                                                                                                                                                             |
+| `PUBLICATION_YEAR_TOLERANCE`     | `2`     | Years are allowed to be this many years apart when both are known.                                                                                                                                                                                                                                                        |
 
 ## Transfer (queue runner)
 

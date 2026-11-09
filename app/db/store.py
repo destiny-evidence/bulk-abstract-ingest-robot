@@ -27,7 +27,15 @@ class AbstractStore:
         self.db = DatabaseEngine(settings=settings)
 
     async def get_next_request_batch(self) -> Sequence[ParsedRecordExtra]:
-        """Get entries that we might want to check next in the repository."""
+        """
+        Get entries that we might want to check next in the repository.
+
+        Records that are already evaluated or ruled out via `has_eligible_abstract` are skipped,
+        and so are records parked with `encountered_parsing_error` - otherwise an unparseable record
+        would be picked up again on every iteration (it never gets `evaluated`) and, once enough of
+        them fill a batch, starve the runner of work it could actually process.
+        Resetting that flag is what makes a record eligible again after a parser fix.
+        """
         self.logger.debug(f"Querying cache DB for batch of at most {self.settings.request_batch_size:,} entries to check in the repository")
         parsed_records = []
         async with self.db.session() as session:
@@ -37,6 +45,7 @@ class AbstractStore:
                     .where(
                         col(Record.evaluated).isnot(other=True),
                         col(Record.has_eligible_abstract).isnot(other=False),
+                        col(Record.encountered_parsing_error).isnot(other=True),
                     )
                     .limit(self.settings.request_batch_size),
                 )

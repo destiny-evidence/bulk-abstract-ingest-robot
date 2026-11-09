@@ -5,16 +5,16 @@ This robot improves abstract coverage in the [DESTinY Open Search index](https:/
 ## What it does
 
 - **Ingests** JSONL exports from Azure blob storage into a local Postgres metadata cache, with checkpoints so a crashed transfer can resume where it left off.
-- **Matches** cached records against the DESTinY repository by OpenAlex ID and checks that the match is plausible (publication year, title similarity).
+- **Matches** cached records against the DESTinY repository by identifier (OpenAlex ID or DOI by default) and checks that the match is plausible (publication year, title similarity).
 - **Submits** an `AbstractContentEnhancement` plus a `RawEnhancement` (the untouched source metadata) for every reference that passes the [enhancement rules](matching.md).
 
 ## What it deliberately does _not_ do
 
 This is a **temporary measure** to improve coverage until the proper, full-fledged ingestion flow with deduplication and (partial) data fusion is in place. Accordingly, there are intentional decisions:
 
-- _no_ full deduplication — records are matched by identifier (DOI) only,
+- _no_ full deduplication — records are matched by a single identifier only, the DOI unless `MATCH_IDENTIFIER` says otherwise,
 - _no_ creating new references (canonicals) in the index — existing references are only enhanced,
-- _no_ heavy transformation — raw source data is stored as-is and parsed lazily, with a thin per-format parser,
+- _no_ heavy transformation — raw source data is stored as-is and parsed lazily, with a thin per-format parser; a payload it cannot parse is parked with `encountered_parsing_error` rather than breaking the flow,
 - _no_ data fusion — new metadata is not merged and existing values are not replaces by picking the "better" one.
 
 <!-- prettier-ignore -->
@@ -55,7 +55,7 @@ flowchart TD
     RECORDS -->|"unevaluated batch"| MATCH
     RECORDS -->|"eligible records"| ENHANCE
     %% MATCH -->|"log eligibility"| RECORDS
-    MATCH -->|"lookup by OpenAlex ID,<br/>request enhancements"| REPO
+    MATCH -->|"lookup by configured<br/>identifier (DOI),<br/>request enhancements"| REPO
     REPO -->|"approved batches"| ENHANCE
     ENHANCE -->|"submit abstract +<br/>raw enhancements"| REPO
 ```

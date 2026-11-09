@@ -33,7 +33,7 @@ Every flag is written by a specific step of the pipeline, which makes progress o
 | Column                          | Set by                       | Meaning                                                                                                                                |
 | ------------------------------- | ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
 | `has_eligible_abstract`         | Match runner (batch pick-up) | `false` if the record's own abstract is too short to ever be submitted (`MIN_ABSTRACT_LENGTH`); such records are skipped from then on. |
-| `encountered_parsing_error`     | Runners                      | Raw payload could not be parsed.                                                                                                       |
+| `encountered_parsing_error`     | Match runner (batch pick-up) | Raw payload could not be parsed, or the parsed record failed validation. Parked until the flag is reset (see below).                   |
 | `evaluated`                     | Match runner                 | The record has been checked against the repository once.                                                                               |
 | `found_destiny_reference`       | Match runner                 | A matching reference was found in the repository (`destiny_id` filled).                                                                |
 | `abstract_enhancement_required` | Match runner                 | The [enhancement rules](matching.md) say we should submit this abstract.                                                               |
@@ -44,7 +44,10 @@ A record therefore walks a funnel like this (each stage is one indexed column, s
 
 ```mermaid
 flowchart LR
-    NEW["queued<br/><i>(ingest transfer)</i>"] --> ELIG{"has_eligible<br/>abstract?"}
+    NEW["queued<br/><i>(ingest transfer)</i>"] --> PARSE{"raw payload<br/>parses?"}
+    PARSE -- "no" --> PARKED["encountered<br/>parsing_error"]
+    PARKED -. "parser fixed,<br/>flag reset" .-> ELIG
+    PARSE -- yes --> ELIG{"has_eligible<br/>abstract?"}
     ELIG -- "no (too short)" --> DEAD["skipped"]
     ELIG -- yes --> EVAL["evaluated"]
     EVAL -- "no match in ODS" --> NOMATCH["no destiny_id"]
@@ -54,9 +57,28 @@ flowchart LR
     REQ --> SUB["enhancement<br/>submitted"]
 
     style DEAD fill:transparent
+    style PARKED fill:#f6e7d7,stroke:#c58b4b
 ```
 
 All flags from the match stage are persisted in a **single transaction** per batch, so an interrupted run never leaves a half-updated batch behind.
+
+<!-- prettier-ignore -->
+!!! note "A parked record is not evaluated"
+    A record that fails to parse never reaches the repository, so it never gets `evaluated = true`. That is why the batch query also excludes `encountered_parsing_error = true` rows: without that filter the same broken rows would be picked up again on every iteration (and, once enough of them filled a batch, starve the runner of work it could actually do).
+
+### Parser fixes
+
+Parsing is deliberately lazy — raw payloads are converted only when a runner needs them, so a parser fix can be applied retroactively to records that were queued before it existed. The error flag is the parking brake that makes that safe: a record whose shape the current parser cannot handle is flagged and set aside instead of aborting the whole batch, the robot keeps working through everything it _can_ parse, and the parked records are picked up again once the parser understands them:
+
+```sql
+-- What is parked, and what did it fail on?  (the reason is in the match runner's log)
+SELECT format, count(*) FROM records WHERE encountered_parsing_error GROUP BY format;
+
+-- After deploying the parser fix: let the runner try again
+UPDATE records SET encountered_parsing_error = false WHERE encountered_parsing_error;
+```
+
+No restart is strictly needed — the runner re-reads the table every `MATCH_INTERVAL_SECONDS`, so clearing the flag is enough for the next loop to pick the records up. Restart the match runner when the parser itself changed, of course.
 
 ## `search_ingest` — transfer requests
 

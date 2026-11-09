@@ -4,11 +4,11 @@ The robot is a set of small, independent **runner** processes that never talk to
 
 ## Runners
 
-| Runner             | Module                  | Loop interval                             | Job                                                                                                                                                                              |
-| ------------------ | ----------------------- | ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Queue runner**   | `app/robots/queue.py`   | `QUEUE_INTERVAL_SECONDS` (default 1 h)    | Streams JSONL files from Azure blob storage into the `records` table, checkpointing progress on the `search_ingest` row.                                                         |
-| **Match runner**   | `app/robots/match.py`   | `MATCH_INTERVAL_SECONDS` (default 30 s)   | Takes a batch of not-yet-evaluated records, looks them up in the repository by OpenAlex ID, filters them through the [enhancement rules](matching.md) and requests enhancements. |
-| **Enhance runner** | `app/robots/enhance.py` | `ENHANCE_INTERVAL_SECONDS` (default 30 s) | Polls the repository for approved enhancement batches, fetches the abstracts from the cache and submits the enhancements.                                                        |
+| Runner             | Module                  | Loop interval                             | Job                                                                                                                                                                                                                                   |
+| ------------------ | ----------------------- | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Queue runner**   | `app/robots/queue.py`   | `QUEUE_INTERVAL_SECONDS` (default 1 h)    | Streams JSONL files from Azure blob storage into the `records` table, checkpointing progress on the `search_ingest` row.                                                                                                              |
+| **Match runner**   | `app/robots/match.py`   | `MATCH_INTERVAL_SECONDS` (default 30 s)   | Takes a batch of not-yet-evaluated records, looks them up in the repository by the identifier configured in `MATCH_IDENTIFIER` (DOI by default), filters them through the [enhancement rules](matching.md) and requests enhancements. |
+| **Enhance runner** | `app/robots/enhance.py` | `ENHANCE_INTERVAL_SECONDS` (default 30 s) | Polls the repository for approved enhancement batches, fetches the abstracts from the cache and submits the enhancements.                                                                                                             |
 
 ## End-to-end sequence
 
@@ -33,7 +33,7 @@ sequenceDiagram
     end
     loop every MATCH_INTERVAL_SECONDS
         M->>DB: take next request batch (unevaluated records)
-        M->>ODS: lookup references by OpenAlex ID
+        M->>ODS: lookup references by MATCH_IDENTIFIER (DOI by default)
         M->>M: apply enhancement rules
         M->>ODS: POST /enhancement-requests/ for eligible references
         M->>DB: persist all tracking flags atomically
@@ -67,12 +67,15 @@ Two mechanisms allow multiple worker processes to run without double work:
 
 ## Crash resilience
 
-| Failure                                       | Recovery                                                                                                                                                                |
-| --------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Queue runner dies mid-file                    | Progress was checkpointed (`checkpoint_bytes` / `checkpoint_rows`) at every `API_WRAPPER_CHECKPOINT_INTERVAL` rows; the next run resumes streaming at that byte offset. |
-| Match runner dies mid-batch                   | All provenance writes happen in **one atomic transaction** — either every tracking flag for the batch is written, or none. Records are re-processed on the next poll.   |
-| Enhance runner dies before finalising a batch | The repository never sees a completed batch result and will hand it out again. Double-submitting enhancements is acceptable by design.                                  |
-| Whole host dies                               | File locks are released by the OS; checkpoints and tracking flags in Postgres tell the next run exactly where to continue.                                              |
+| Failure                                       | Recovery                                                                                                                                                                                                                                                   |
+| --------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Queue runner dies mid-file                    | Progress was checkpointed (`checkpoint_bytes` / `checkpoint_rows`) at every `API_WRAPPER_CHECKPOINT_INTERVAL` rows; the next run resumes streaming at that byte offset.                                                                                    |
+| Match runner dies mid-batch                   | All provenance writes happen in **one atomic transaction** — either every tracking flag for the batch is written, or none. Records are re-processed on the next poll.                                                                                      |
+| Enhance runner dies before finalising a batch | The repository never sees a completed batch result and will hand it out again. Double-submitting enhancements is acceptable by design.                                                                                                                     |
+| A single record cannot be parsed              | The match runner logs a warning and flags the row `encountered_parsing_error`; the rest of the batch is processed normally. The row stays parked until the flag is reset after a parser fix (see [Data model → Parser fixes](data-model.md#parser-fixes)). |
+| Whole host dies                               | File locks are released by the OS; checkpoints and tracking flags in Postgres tell the next run exactly where to continue.                                                                                                                                 |
+
+A broken record is _data_ trouble, not _process_ trouble: every runner catches and logs exceptions per iteration, so one bad payload parks a row without stopping the loop.
 
 ## Related components
 

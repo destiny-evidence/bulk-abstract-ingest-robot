@@ -9,7 +9,7 @@ This is a deliberately pragmatic, **temporary** measure until the proper ingesti
 Three small runner processes work through the pipeline, coordinating only via a Postgres metadata cache and the repository itself — every step is tracked in the database, so any runner can crash and resume where it left off:
 
 1. **Queue runner** — streams JSONL export files from Azure blob storage into the cache, with checkpoints.
-2. **Match runner** — looks records up in the repository by OpenAlex ID, filters out implausible matches and duplicates, and requests enhancements for what's left.
+2. **Match runner** — looks records up in the repository by the configured identifier (DOI by default), filters out implausible matches and duplicates, and requests enhancements for what's left. A record it cannot parse is flagged and parked, not fatal.
 3. **Enhance runner** — picks up repository-approved batches and submits the abstract (plus the untouched raw metadata) as enhancements.
 
 ```plain

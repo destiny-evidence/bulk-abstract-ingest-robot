@@ -43,4 +43,5 @@ WHERE ctid IN (
 DELETE
 FROM records
 WHERE (enhancement_submitted = TRUE OR abstract_enhancement_required = FALSE)
+  AND encountered_parsing_error <> TRUE
   AND created_at < NOW() - INTERVAL '14 days';

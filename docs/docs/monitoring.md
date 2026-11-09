@@ -37,16 +37,20 @@ Currently tracked metrics:
 
 **Record funnel** (counted over `records`, one metric per tracking flag — see [Data model → Tracking columns](data-model.md#tracking-columns)):
 
-| Metric                                  | Counts                                                 |
-| --------------------------------------- | ------------------------------------------------------ |
-| `records_total`                         | rows in the cache                                      |
-| `records_has_eligible_abstract`         | rows whose abstract passed the length pre-filter       |
-| `records_evaluated`                     | rows checked against the repository                    |
-| `records_found_destiny_reference`       | rows matched to a DESTinY reference                    |
-| `records_abstract_enhancement_required` | rows the [enhancement rules](matching.md) accepted     |
-| `records_enhancement_requested`         | rows an enhancement request was sent for               |
-| `records_enhancement_submitted`         | rows whose enhancement actually reached the repository |
-| `records_encountered_parsing_error`     | rows whose raw payload could not be parsed             |
+| Metric                                  | Counts                                                    |
+| --------------------------------------- | --------------------------------------------------------- |
+| `records_total`                         | rows in the cache                                         |
+| `records_has_eligible_abstract`         | rows whose abstract passed the length pre-filter          |
+| `records_evaluated`                     | rows checked against the repository                       |
+| `records_found_destiny_reference`       | rows matched to a DESTinY reference                       |
+| `records_abstract_enhancement_required` | rows the [enhancement rules](matching.md) accepted        |
+| `records_enhancement_requested`         | rows an enhancement request was sent for                  |
+| `records_enhancement_submitted`         | rows whose enhancement actually reached the repository    |
+| `records_encountered_parsing_error`     | rows parked because their raw payload could not be parsed |
+
+<!-- prettier-ignore -->
+!!! tip "Reading the parsing-error counter"
+    The robot keeps working when it hits an unparsable payload, so this metric is the only thing that surfaces a parser gap: any growth means rows are being parked, and the reason is in the match runner's log (`Failed record parsing: …` / `Failed record validation: …`). Fix the parser and clear the flag before the 14-day purge removes those rows — see [Data model → Parser fixes](data-model.md#parser-fixes).
 
 To add a metric, append an `INSERT INTO monitoring SELECT now(), '<key>', count(...), 'orig' FROM ...` statement to `tracking.sql` — and add a matching `CASE WHEN` column to `monitor.sql`, whose pivot columns are hardcoded.
 

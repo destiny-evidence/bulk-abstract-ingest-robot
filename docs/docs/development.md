@@ -121,6 +121,8 @@ uv run zensical build --config-file docs/zensical.toml --clean
 ## Operations notes
 
 - **Restart safety:** every runner can be killed and restarted at any time — see [Architecture → Crash resilience](architecture.md#crash-resilience).
+- **Parser fixes:** records the parser could not handle are parked with `encountered_parsing_error` while the robot keeps working; clear the flag to have them retried, see [Data model → Parser fixes](data-model.md#parser-fixes).
+- **Matching key:** switch `MATCH_IDENTIFIER` between `doi` and `open_alex` to change which identifier the match runner looks records up by. DOI is the only one the transfer parsers currently fill, so the alternative silently matches nothing until `openalex_id` is populated.
 - **Cleanup:** automatic — `scripts/compact.sql` (via `sql-cron`) purges submitted or ineligible records older than 14 days, see [Monitoring → Compacting](monitoring.md#compacting-compactsql-daily-at-1000).
 - **Monitoring:** metric collection, compaction and the snapshot query are described on the [Monitoring](monitoring.md) page.
 - **Deployment:** current deployment runs the Compose stack (or bare processes) on a PIK VM with a hosted Postgres. `infra/` contains Azure Container App Terraform scaffolding carried over from the toy-robot template — its variable names predate the current `Settings` and need updating before use.
