@@ -4,6 +4,7 @@ import logging
 from collections.abc import Sequence
 from uuid import UUID
 
+from pydantic import ValidationError
 from sqlalchemy import update
 from sqlmodel import col, select
 
@@ -42,11 +43,19 @@ class AbstractStore:
             ).all()
 
             for record in batch:
-                parsed_record = ParsedRecordExtra.from_record(record)
-                if len(parsed_record.abstract or "") < self.settings.min_abstract_length:
-                    record.has_eligible_abstract = False
-                else:
-                    parsed_records.append(parsed_record)
+                try:
+                    parsed_record = ParsedRecordExtra.from_record(record)
+                    if len(parsed_record.abstract or "") < self.settings.min_abstract_length:
+                        record.has_eligible_abstract = False
+                    else:
+                        parsed_records.append(parsed_record)
+                except ValidationError as exc:
+                    record.encountered_parsing_error = True
+                    self.logger.warning(f"Failed record validation: {exc.json(include_url=False)}")
+                except AssertionError as exc:
+                    record.encountered_parsing_error = True
+                    self.logger.warning(f"Failed record parsing: {exc}")
+
             await session.commit()
         return parsed_records
 

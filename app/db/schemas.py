@@ -99,6 +99,9 @@ class ParsedRecord(RecordIdentifiers, _BiblioMixin, _TrackingMixin):
 
     @classmethod
     def _parse_record_kwargs(cls, record: Record) -> dict[str, Any]:
+        if record.raw is None or len(record.raw) == 0:
+            raise AssertionError("No raw data in record!")
+
         if record.format == Format.SCOPUS_API:
             py: int | None = None
             py_: str | None = record.raw.get("prism:coverDate") or record.raw.get("prism:coverDisplayDate")
@@ -121,8 +124,10 @@ class ParsedRecord(RecordIdentifiers, _BiblioMixin, _TrackingMixin):
                 "doi": record.doi or doi,
                 "source": Source.SCOPUS,
                 **record.model_dump(
-                    exclude_defaults=True, exclude={"scopus_id", "doi", "format", "raw"}
-                ),  # `format` and `raw` are set by `ParsedRecordExtra.from_record` separately
+                    exclude_defaults=True,
+                    # `format` and `raw` are set by `ParsedRecordExtra.from_record` separately
+                    exclude={"scopus_id", "doi", "format", "raw"},
+                ),
             }
 
         raise NotImplementedError(f"No parser for format {record.format}")
