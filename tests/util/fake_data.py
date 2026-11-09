@@ -14,7 +14,7 @@ from functools import lru_cache
 from pathlib import Path
 from uuid import UUID
 
-from app.db.schemas import ODSRecord, ParsedRecord
+from app.db.schemas import Format, ODSRecord, ParsedRecord, Record
 
 DESTINY_ID = UUID("11111111-1111-1111-1111-111111111111")
 OTHER_ID = UUID("22222222-2222-2222-2222-222222222222")
@@ -196,3 +196,12 @@ def scopus_sample_jsonl(count: int | None = None) -> bytes:
 def scopus_record(index: int = 0) -> dict:
     """Parse one record of the sample by index (used to build tampered variants)."""
     return json.loads(scopus_sample_lines()[index])
+
+
+def scopus_row(index: int = 0, *, raw: dict | None = None, **flags) -> Record:
+    """
+    A queued `records` row carrying one real sample payload, as the queue runner would have stored it.
+
+    Pass a tampered `raw` to poison the payload, and identifier or tracking columns via `flags`.
+    """
+    return Record(format=Format.SCOPUS_API, raw=scopus_record(index) if raw is None else raw, **flags)

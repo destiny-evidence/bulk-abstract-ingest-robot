@@ -16,4 +16,5 @@ from tests.util.fixtures import (  # noqa: E402, F401, RUF100
     queue_tracker,
     runner_factory,
     settings,
+    store,
 )

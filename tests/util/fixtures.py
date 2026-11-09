@@ -5,7 +5,9 @@ Shared fixtures: settings, the mock database, and generic runner construction.
 clients), the store of your choice, and a spec-ed mock repository — `MagicMock(spec=Repository)` turns
 the async API methods into awaitable `AsyncMock`s automatically, so no per-method mock wiring is needed.
 The per-runner fixtures below just say which runner class, which store flavour, and which extra test
-doubles (the queue runner's blob and tracking database) a test wants.
+doubles (the queue runner's blob and tracking database) a test wants. The `store` fixture is the one
+exception to the doubles: the real `AbstractStore` on a throwaway SQLite database, for testing the
+store's own batch query and verdict-writing (tests/util/sqlite_database.py).
 """
 
 import asyncio
@@ -16,6 +18,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from app.db.schemas import SearchIngest
+from app.db.store import AbstractStore
 from app.robots.enhance import EnhancementRunner
 from app.robots.match import MatchRunner
 from app.robots.queue import IngestionQueueRunner
@@ -26,6 +29,7 @@ from app.util.runner import Runner
 from .fake_blob import FakeBlobStorage, fake_blob_client
 from .fake_data import SAS_URL
 from .fake_database import MockDatabase, MockIngestTracker, MockStore
+from .sqlite_database import create_tables, sqlite_store
 
 R = TypeVar("R", bound=Runner)
 
@@ -38,6 +42,14 @@ def settings() -> Settings:
 @pytest.fixture
 def db() -> MockDatabase:
     return MockDatabase()
+
+
+@pytest.fixture
+def store(settings: Settings, tmp_path) -> AbstractStore:
+    """The real `AbstractStore` (its SQL included) against a throwaway SQLite file instead of Postgres."""
+    store = sqlite_store(settings=settings, path=tmp_path / "records.db")
+    asyncio.run(create_tables(store))
+    return store
 
 
 @pytest.fixture
