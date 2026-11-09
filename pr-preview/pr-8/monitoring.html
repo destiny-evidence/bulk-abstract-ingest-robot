@@ -688,10 +688,15 @@
 </tr>
 <tr>
 <td><code>records_encountered_parsing_error</code></td>
-<td>rows whose raw payload could not be parsed</td>
+<td>rows parked because their raw payload could not be parsed</td>
 </tr>
 </tbody>
 </table>
+<!-- prettier-ignore -->
+<div class="admonition tip">
+<p class="admonition-title">Reading the parsing-error counter</p>
+<p>The robot keeps working when it hits an unparsable payload, so this metric is the only thing that surfaces a parser gap: any growth means rows are being parked, and the reason is in the match runner's log (<code>Failed record parsing: …</code> / <code>Failed record validation: …</code>). Fix the parser and clear the flag before the 14-day purge removes those rows — see <a href="data-model.html#parser-fixes">Data model → Parser fixes</a>.</p>
+</div>
 <p>To add a metric, append an <code>INSERT INTO monitoring SELECT now(), '&lt;key&gt;', count(...), 'orig' FROM ...</code> statement to <code>tracking.sql</code> — and add a matching <code>CASE WHEN</code> column to <code>monitor.sql</code>, whose pivot columns are hardcoded.</p>
 <h2 id="compacting-compactsql-daily-at-1000">Compacting — <code>compact.sql</code> (daily at 10:00)<a class="headerlink" href="#compacting-compactsql-daily-at-1000" title="Permanent link">&para;</a></h2>
 <p>Three housekeeping passes in one script:</p>

@@ -861,6 +861,8 @@
 <h2 id="operations-notes">Operations notes<a class="headerlink" href="#operations-notes" title="Permanent link">&para;</a></h2>
 <ul>
 <li><strong>Restart safety:</strong> every runner can be killed and restarted at any time — see <a href="architecture.html#crash-resilience">Architecture → Crash resilience</a>.</li>
+<li><strong>Parser fixes:</strong> records the parser could not handle are parked with <code>encountered_parsing_error</code> while the robot keeps working; clear the flag to have them retried, see <a href="data-model.html#parser-fixes">Data model → Parser fixes</a>.</li>
+<li><strong>Matching key:</strong> switch <code>MATCH_IDENTIFIER</code> between <code>doi</code> and <code>open_alex</code> to change which identifier the match runner looks records up by. DOI is the only one the transfer parsers currently fill, so the alternative silently matches nothing until <code>openalex_id</code> is populated.</li>
 <li><strong>Cleanup:</strong> automatic — <code>scripts/compact.sql</code> (via <code>sql-cron</code>) purges submitted or ineligible records older than 14 days, see <a href="monitoring.html#compacting-compactsql-daily-at-1000">Monitoring → Compacting</a>.</li>
 <li><strong>Monitoring:</strong> metric collection, compaction and the snapshot query are described on the <a href="monitoring.html">Monitoring</a> page.</li>
 <li><strong>Deployment:</strong> current deployment runs the Compose stack (or bare processes) on a PIK VM with a hosted Postgres. <code>infra/</code> contains Azure Container App Terraform scaffolding carried over from the toy-robot template — its variable names predate the current <code>Settings</code> and need updating before use.</li>

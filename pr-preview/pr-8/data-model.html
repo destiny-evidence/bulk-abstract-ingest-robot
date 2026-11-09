@@ -427,6 +427,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#parser-fixes" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Parser fixes
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -631,6 +642,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#parser-fixes" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Parser fixes
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -765,8 +787,8 @@
 </tr>
 <tr>
 <td><code>encountered_parsing_error</code></td>
-<td>Runners</td>
-<td>Raw payload could not be parsed.</td>
+<td>Match runner (batch pick-up)</td>
+<td>Raw payload could not be parsed, or the parsed record failed validation. Parked until the flag is reset (see below).</td>
 </tr>
 <tr>
 <td><code>evaluated</code></td>
@@ -797,7 +819,10 @@
 </table>
 <p>A record therefore walks a funnel like this (each stage is one indexed column, so every batch query is a simple "where not yet done" filter):</p>
 <pre class="mermaid"><code>flowchart LR
-    NEW["queued&lt;br/&gt;&lt;i&gt;(ingest transfer)&lt;/i&gt;"] --&gt; ELIG{"has_eligible&lt;br/&gt;abstract?"}
+    NEW["queued&lt;br/&gt;&lt;i&gt;(ingest transfer)&lt;/i&gt;"] --&gt; PARSE{"raw payload&lt;br/&gt;parses?"}
+    PARSE -- "no" --&gt; PARKED["encountered&lt;br/&gt;parsing_error"]
+    PARKED -. "parser fixed,&lt;br/&gt;flag reset" .-&gt; ELIG
+    PARSE -- yes --&gt; ELIG{"has_eligible&lt;br/&gt;abstract?"}
     ELIG -- "no (too short)" --&gt; DEAD["skipped"]
     ELIG -- yes --&gt; EVAL["evaluated"]
     EVAL -- "no match in ODS" --&gt; NOMATCH["no destiny_id"]
@@ -806,8 +831,23 @@
     FOUND -- "rules pass" --&gt; REQ["enhancement&lt;br/&gt;requested"]
     REQ --&gt; SUB["enhancement&lt;br/&gt;submitted"]
 
-    style DEAD fill:transparent</code></pre>
+    style DEAD fill:transparent
+    style PARKED fill:#f6e7d7,stroke:#c58b4b</code></pre>
 <p>All flags from the match stage are persisted in a <strong>single transaction</strong> per batch, so an interrupted run never leaves a half-updated batch behind.</p>
+<!-- prettier-ignore -->
+<div class="admonition note">
+<p class="admonition-title">A parked record is not evaluated</p>
+<p>A record that fails to parse never reaches the repository, so it never gets <code>evaluated = true</code>. That is why the batch query also excludes <code>encountered_parsing_error = true</code> rows: without that filter the same broken rows would be picked up again on every iteration (and, once enough of them filled a batch, starve the runner of work it could actually do).</p>
+</div>
+<h3 id="parser-fixes">Parser fixes<a class="headerlink" href="#parser-fixes" title="Permanent link">&para;</a></h3>
+<p>Parsing is deliberately lazy — raw payloads are converted only when a runner needs them, so a parser fix can be applied retroactively to records that were queued before it existed. The error flag is the parking brake that makes that safe: a record whose shape the current parser cannot handle is flagged and set aside instead of aborting the whole batch, the robot keeps working through everything it <em>can</em> parse, and the parked records are picked up again once the parser understands them:</p>
+<div class="language-sql highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1">-- What is parked, and what did it fail on?  (the reason is in the match runner's log)</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="k">SELECT</span><span class="w"> </span><span class="n">format</span><span class="p">,</span><span class="w"> </span><span class="k">count</span><span class="p">(</span><span class="o">*</span><span class="p">)</span><span class="w"> </span><span class="k">FROM</span><span class="w"> </span><span class="n">records</span><span class="w"> </span><span class="k">WHERE</span><span class="w"> </span><span class="n">encountered_parsing_error</span><span class="w"> </span><span class="k">GROUP</span><span class="w"> </span><span class="k">BY</span><span class="w"> </span><span class="n">format</span><span class="p">;</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="c1">-- After deploying the parser fix: let the runner try again</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="k">UPDATE</span><span class="w"> </span><span class="n">records</span><span class="w"> </span><span class="k">SET</span><span class="w"> </span><span class="n">encountered_parsing_error</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">false</span><span class="w"> </span><span class="k">WHERE</span><span class="w"> </span><span class="n">encountered_parsing_error</span><span class="p">;</span>
+</span></code></pre></div>
+<p>No restart is strictly needed — the runner re-reads the table every <code>MATCH_INTERVAL_SECONDS</code>, so clearing the flag is enough for the next loop to pick the records up. Restart the match runner when the parser itself changed, of course.</p>
 <h2 id="search_ingest-transfer-requests"><code>search_ingest</code> — transfer requests<a class="headerlink" href="#search_ingest-transfer-requests" title="Permanent link">&para;</a></h2>
 <p>One row per source file to ingest. This is both the signal to the queue runner ("there is work") and the progress tracker ("resume here if we crash").</p>
 <table>

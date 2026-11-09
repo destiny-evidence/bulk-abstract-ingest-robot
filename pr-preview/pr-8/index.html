@@ -649,15 +649,15 @@
 <h2 id="what-it-does">What it does<a class="headerlink" href="#what-it-does" title="Permanent link">&para;</a></h2>
 <ul>
 <li><strong>Ingests</strong> JSONL exports from Azure blob storage into a local Postgres metadata cache, with checkpoints so a crashed transfer can resume where it left off.</li>
-<li><strong>Matches</strong> cached records against the DESTinY repository by OpenAlex ID and checks that the match is plausible (publication year, title similarity).</li>
+<li><strong>Matches</strong> cached records against the DESTinY repository by identifier (OpenAlex ID or DOI by default) and checks that the match is plausible (publication year, title similarity).</li>
 <li><strong>Submits</strong> an <code>AbstractContentEnhancement</code> plus a <code>RawEnhancement</code> (the untouched source metadata) for every reference that passes the <a href="matching.html">enhancement rules</a>.</li>
 </ul>
 <h2 id="what-it-deliberately-does-not-do">What it deliberately does <em>not</em> do<a class="headerlink" href="#what-it-deliberately-does-not-do" title="Permanent link">&para;</a></h2>
 <p>This is a <strong>temporary measure</strong> to improve coverage until the proper, full-fledged ingestion flow with deduplication and (partial) data fusion is in place. Accordingly, there are intentional decisions:</p>
 <ul>
-<li><em>no</em> full deduplication — records are matched by identifier (DOI) only,</li>
+<li><em>no</em> full deduplication — records are matched by a single identifier only, the DOI unless <code>MATCH_IDENTIFIER</code> says otherwise,</li>
 <li><em>no</em> creating new references (canonicals) in the index — existing references are only enhanced,</li>
-<li><em>no</em> heavy transformation — raw source data is stored as-is and parsed lazily, with a thin per-format parser,</li>
+<li><em>no</em> heavy transformation — raw source data is stored as-is and parsed lazily, with a thin per-format parser; a payload it cannot parse is parked with <code>encountered_parsing_error</code> rather than breaking the flow,</li>
 <li><em>no</em> data fusion — new metadata is not merged and existing values are not replaces by picking the "better" one.</li>
 </ul>
 <!-- prettier-ignore -->
@@ -696,7 +696,7 @@ Changes should be weighed against that end goal (see the discussion in <a href="
     RECORDS --&gt;|"unevaluated batch"| MATCH
     RECORDS --&gt;|"eligible records"| ENHANCE
     %% MATCH --&gt;|"log eligibility"| RECORDS
-    MATCH --&gt;|"lookup by OpenAlex ID,&lt;br/&gt;request enhancements"| REPO
+    MATCH --&gt;|"lookup by configured&lt;br/&gt;identifier (DOI),&lt;br/&gt;request enhancements"| REPO
     REPO --&gt;|"approved batches"| ENHANCE
     ENHANCE --&gt;|"submit abstract +&lt;br/&gt;raw enhancements"| REPO</code></pre>
 <p>Each runner runs its own endless loop and can be restarted at any time — all progress is tracked in the database. The individual steps are explained in <a href="architecture.html">Architecture</a>.</p>

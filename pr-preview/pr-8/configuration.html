@@ -817,7 +817,7 @@
 </tbody>
 </table>
 <h2 id="enhancement-rules">Enhancement rules<a class="headerlink" href="#enhancement-rules" title="Permanent link">&para;</a></h2>
-<p>These feed the plausibility checks described on the <a href="matching.html">Enhancement rules</a> page:</p>
+<p>These decide which records the match runner even considers, and how it judges them (see the <a href="matching.html">Enhancement rules</a> page):</p>
 <table>
 <thead>
 <tr>
@@ -827,6 +827,11 @@
 </tr>
 </thead>
 <tbody>
+<tr>
+<td><code>MATCH_IDENTIFIER</code></td>
+<td><code>doi</code></td>
+<td>Identifier used to search and match queued records against ODS references: <code>doi</code> or <code>open_alex</code>. Other DESTinY identifier types are not implemented yet, and <code>open_alex</code> matches nothing while transfers leave that column empty (see <a href="matching.html#how-records-reach-the-check">Matching → How records reach the check</a>).</td>
+</tr>
 <tr>
 <td><code>MIN_ABSTRACT_LENGTH</code></td>
 <td><code>200</code></td>

@@ -691,7 +691,7 @@
 <td><strong>Match runner</strong></td>
 <td><code>app/robots/match.py</code></td>
 <td><code>MATCH_INTERVAL_SECONDS</code> (default 30 s)</td>
-<td>Takes a batch of not-yet-evaluated records, looks them up in the repository by OpenAlex ID, filters them through the <a href="matching.html">enhancement rules</a> and requests enhancements.</td>
+<td>Takes a batch of not-yet-evaluated records, looks them up in the repository by the identifier configured in <code>MATCH_IDENTIFIER</code> (DOI by default), filters them through the <a href="matching.html">enhancement rules</a> and requests enhancements.</td>
 </tr>
 <tr>
 <td><strong>Enhance runner</strong></td>
@@ -722,7 +722,7 @@
     end
     loop every MATCH_INTERVAL_SECONDS
         M-&gt;&gt;DB: take next request batch (unevaluated records)
-        M-&gt;&gt;ODS: lookup references by OpenAlex ID
+        M-&gt;&gt;ODS: lookup references by MATCH_IDENTIFIER (DOI by default)
         M-&gt;&gt;M: apply enhancement rules
         M-&gt;&gt;ODS: POST /enhancement-requests/ for eligible references
         M-&gt;&gt;DB: persist all tracking flags atomically
@@ -769,11 +769,16 @@
 <td>The repository never sees a completed batch result and will hand it out again. Double-submitting enhancements is acceptable by design.</td>
 </tr>
 <tr>
+<td>A single record cannot be parsed</td>
+<td>The match runner logs a warning and flags the row <code>encountered_parsing_error</code>; the rest of the batch is processed normally. The row stays parked until the flag is reset after a parser fix (see <a href="data-model.html#parser-fixes">Data model → Parser fixes</a>).</td>
+</tr>
+<tr>
 <td>Whole host dies</td>
 <td>File locks are released by the OS; checkpoints and tracking flags in Postgres tell the next run exactly where to continue.</td>
 </tr>
 </tbody>
 </table>
+<p>A broken record is <em>data</em> trouble, not <em>process</em> trouble: every runner catches and logs exceptions per iteration, so one bad payload parks a row without stopping the loop.</p>
 <h2 id="related-components">Related components<a class="headerlink" href="#related-components" title="Permanent link">&para;</a></h2>
 <ul>
 <li><strong><a href="https://github.com/destiny-evidence/academic-api-importer">Academic API Importer</a></strong> — retrieves the large result sets from vendor APIs (Scopus today) and uploads them to blob storage; its "ingest bridge" is intended to feed the <code>search_ingest</code> table so the transfer starts automatically.</li>
