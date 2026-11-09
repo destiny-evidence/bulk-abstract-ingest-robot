@@ -15,6 +15,7 @@ from destiny_sdk.enhancements import (
     RawEnhancement,
 )
 from destiny_sdk.identifiers import (
+    DOIIdentifier,
     ExternalIdentifierType,
     IdentifierLookup,
     OpenAlexIdentifier,
@@ -31,6 +32,11 @@ from ..db.schemas import ODSRecord, ParsedRecord, ParsedRecordExtra
 from .config import Settings
 
 HTTP_TIMEOUT_SECONDS = 600
+
+ID_FIELDS: dict[ExternalIdentifierType, tuple[str, type[DOIIdentifier | OpenAlexIdentifier]]] = {
+    ExternalIdentifierType.DOI: ("doi", DOIIdentifier),
+    ExternalIdentifierType.OPEN_ALEX: ("openalex_id", OpenAlexIdentifier),
+}
 
 
 def flatten_reference(reference: Reference) -> ODSRecord:  # noqa: PLR0912
@@ -106,20 +112,25 @@ class Repository:
 
     async def query_repository(self, cache_entries: Sequence[ParsedRecord]) -> list[tuple[ParsedRecord, ODSRecord]]:
         """
-        Get DESTinY references for the given PIK works, matching by OpenAlex ID.
+        Get DESTinY references for the given PIK works, matching by ID (defined in `settings.match_identifier`).
 
         The API call passes IDs via URL which is the limiting factor on batch size.
         """
-        entries = {entry.openalex_id: entry for entry in cache_entries if entry.openalex_id is not None}
+        try:
+            id_field, Identifier = ID_FIELDS[self.settings.match_identifier]  # noqa: N806
+        except KeyError as err:
+            raise NotImplementedError(f"Matching on `{self.settings.match_identifier}` not implemented.") from err
+
+        entries = {getattr(entry, id_field): entry for entry in cache_entries if getattr(entry, id_field) is not None}
 
         query: list[str | IdentifierLookup] = [
             IdentifierLookup.from_identifier(
-                OpenAlexIdentifier(
-                    identifier=openalex_id,
-                    identifier_type=ExternalIdentifierType.OPEN_ALEX,
+                Identifier(
+                    identifier=identifier,
+                    identifier_type=self.settings.match_identifier,
                 ),
             )
-            for openalex_id in entries
+            for identifier in entries
         ]
 
         batch_size = self.settings.repository_lookup_batch_size
@@ -137,11 +148,11 @@ class Repository:
         matched_references = []
         for reference in references:
             flat_reference = flatten_reference(reference)
-            if flat_reference.openalex_id is not None and flat_reference.openalex_id in entries:
-                matched_references.append((entries[flat_reference.openalex_id], flat_reference))
+            if getattr(flat_reference, id_field) is not None and getattr(flat_reference, id_field) in entries:
+                matched_references.append((entries[getattr(flat_reference, id_field)], flat_reference))
 
         self.logger.debug(
-            f"Queried for {len(entries):,} OpenAlex IDs in {len(query_batches):,} lookup requests "
+            f"Queried for {len(entries):,} `{id_field}`s in {len(query_batches):,} lookup requests "
             f"(batch size <= {batch_size}, concurrency {self.settings.repository_lookup_concurrency}); "
             f"received {len(references):,} references of which {len(matched_references):,} matched",
         )

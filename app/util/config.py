@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Annotated, Any
 from uuid import UUID
 
+from destiny_sdk.identifiers import ExternalIdentifierType
 from pydantic import AfterValidator, Field, HttpUrl, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -158,6 +159,9 @@ class Settings(BaseSettings):
         description="references database name",
     )
 
+    match_identifier: ExternalIdentifierType = Field(
+        default=ExternalIdentifierType.DOI, description="Identifier to use for searching and matching queued references to ODS references."
+    )
     publication_year_tolerance: int = Field(
         default=2,
         description=(
