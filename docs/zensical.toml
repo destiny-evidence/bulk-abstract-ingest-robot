@@ -17,8 +17,7 @@ repo_url = "https://github.com/destiny-evidence/bulk-abstract-ingest-robot"
 site_author = "Tim Repke"
 site_description = "Boosting DESTinY abstract coverage from academic database exports, one reference at a time."
 site_name = "Bulk Abstract Ingest Robot"
-#site_url = "https://www.example.com/"
-
+# site_url = "https://www.example.com/"
 
 [[project.extra.social]]
 icon = "fontawesome/brands/github"
