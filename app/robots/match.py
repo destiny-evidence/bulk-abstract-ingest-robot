@@ -35,7 +35,7 @@ class MatchRunner(Runner):
             if not any(  # using inverted logic with `not any (<=)` so we don't always have to iterate the entire list as with `all (>)`
                 (
                     title is not None
-                    and len(list(difflib.ndiff(cached_title, ALPH.sub("", title.lower())))) - len(cached_title) <= self.settings.max_title_slop
+and len(list(difflib.ndiff(cached_title, ALPH.sub("", title.lower())))) - min(len(cached_title), len(ALPH.sub("", title.lower()))) <= self.settings.max_title_slop
                     for title in reference.titles
                 ),
             ):
