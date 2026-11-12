@@ -52,7 +52,7 @@ class MatchRunner(Runner):
                     and self.settings.min_abstract_length < len(abstract) < self.settings.max_abstract_length
                     and (
                         # Mode 1) Existing abstract is "good enough" -> don't enhance
-                        not self.settings.use_slop_for_enhancement_check
+                        not self.settings.replace_abstracts_on_mismatch
                         # Mode 2) Abstracts are similar (with slop) -> don't enhance
                         or (self.settings.max_abstract_slop + len(cached_abstract) >= len(list(difflib.ndiff(cached_abstract, ALPH.sub("", abstract.lower())))))
                     )

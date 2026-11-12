@@ -181,8 +181,9 @@ class Settings(BaseSettings):
         default=100,
         description="Threshold for edit distance between abstracts to consider them identical",
     )
-    use_slop_for_enhancement_check: bool = Field(
-        default=False, description="When enabled, will use difference between abstracts to determine need for enhancement"
+    replace_abstracts_on_mismatch: bool = Field(
+        default=False,
+        description="When enabled, to determine whether to submit a new abstract, don't just check if a reference already has an abstract, but also that none existing abstract is mostly similar"
     )
     max_title_slop: int = Field(
         default=10,
