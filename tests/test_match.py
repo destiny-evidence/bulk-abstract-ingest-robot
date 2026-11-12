@@ -88,7 +88,7 @@ class TestTitleMatching:
 
 
 class TestAbstractMatching:
-    # The rows carry the outcome for both settings of `use_slop_for_enhancement_check`: compared (True) or not (False, the default).
+    # The rows carry the outcome for both settings of `replace_abstracts_on_mismatch`: compared (True) or not (False, the default).
     @pytest.mark.parametrize(
         ("kind", "expected_compared", "expected_presence_only"),
         [
@@ -110,7 +110,7 @@ class TestAbstractMatching:
     )
     @pytest.mark.parametrize("use_slop", [True, False], ids=["compared", "presence only"])
     def test_abstract_filtering(self, match_runner, settings, kind, expected_compared, expected_presence_only, use_slop):
-        settings.use_slop_for_enhancement_check = use_slop
+        settings.replace_abstracts_on_mismatch = use_slop
         expected = expected_compared if use_slop else expected_presence_only
         abstracts = abstracts_for(kind, settings.max_abstract_slop, settings.max_abstract_length)
 
@@ -135,7 +135,7 @@ class TestAbstractMatching:
     @pytest.mark.parametrize("use_slop", [True, False], ids=["compared", "presence only"])
     def test_overlong_cached_abstract_is_rejected_before_comparing(self, match_runner, settings, use_slop):
         # Too long to be trusted, so it never reaches the abstract check — not even against a repository copy of itself
-        settings.use_slop_for_enhancement_check = use_slop
+        settings.replace_abstracts_on_mismatch = use_slop
         overlong = abstract_with_raw_length(settings.max_abstract_length)
 
         assert match_runner.should_enhance(cache_entry(abstract=overlong), ods_reference(abstracts=[SAME_ABSTRACT])) is False
@@ -143,7 +143,7 @@ class TestAbstractMatching:
     def test_abstract_comparison_is_normalised(self, match_runner, settings):
         # case, punctuation, digits and spacing differences are stripped before comparison, so the repository still has a matching abstract
         # (only the comparison can show that: presence-only mode would block this entry for length reasons alone)
-        settings.use_slop_for_enhancement_check = True
+        settings.replace_abstracts_on_mismatch = True
 
         assert (
             match_runner.should_enhance(cache_entry(abstract=NEW_ABSTRACT.upper().replace(" ", ",  ") + "?? + 2026"), ods_reference(abstracts=[SAME_ABSTRACT]))
@@ -152,15 +152,15 @@ class TestAbstractMatching:
 
     def test_the_check_mode_decides_a_different_repository_abstract(self, match_runner, settings):
         """
-        One and the same record is eligible or not, depending only on `use_slop_for_enhancement_check`:
+        One and the same record is eligible or not, depending only on `replace_abstracts_on_mismatch`:
         the repository has an abstract of trustworthy length that clearly talks about something else.
         """
         reference = ods_reference(abstracts=[DIFFERENT_ABSTRACT])
 
-        settings.use_slop_for_enhancement_check = True
+        settings.replace_abstracts_on_mismatch = True
         assert match_runner.should_enhance(cache_entry(), reference) is True
 
-        settings.use_slop_for_enhancement_check = False
+        settings.replace_abstracts_on_mismatch = False
         assert match_runner.should_enhance(cache_entry(), reference) is False
 
 
@@ -207,12 +207,12 @@ class TestLoopTask:
         match_runner.store.get_next_request_batch.return_value = [entry]
         match_runner.repository.query_repository.return_value = [(entry, ods_reference(abstracts=[DIFFERENT_ABSTRACT]))]
 
-        settings.use_slop_for_enhancement_check = True
+        settings.replace_abstracts_on_mismatch = True
         asyncio.run(match_runner._loop_task())
         assert match_runner.repository.request_to_enhance.call_count == 1
 
         match_runner.repository.request_to_enhance.reset_mock()
-        settings.use_slop_for_enhancement_check = False
+        settings.replace_abstracts_on_mismatch = False
         asyncio.run(match_runner._loop_task())
         match_runner.repository.request_to_enhance.assert_not_called()
         match_runner.store.persist_match_results.assert_awaited()  # the entry is still matched and recorded, just not submitted

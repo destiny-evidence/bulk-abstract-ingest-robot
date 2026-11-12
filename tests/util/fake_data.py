@@ -103,7 +103,7 @@ def ods_reference(**overrides) -> ODSRecord:
     A repository record that the default `cache_entry()` passes every check in either enhancement-check mode.
 
     The abstract stays missing on purpose: whether a repository abstract blocks submission depends on
-    `use_slop_for_enhancement_check`, so tests about the other rules keep it out of the way and the tests
+    `replace_abstracts_on_mismatch`, so tests about the other rules keep it out of the way and the tests
     about the abstract hand it one explicitly.
     """
     return ODSRecord(
