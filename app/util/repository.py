@@ -123,7 +123,7 @@ class Repository:
 
         entries = {getattr(entry, id_field): entry for entry in cache_entries if getattr(entry, id_field) is not None}
 
-        query: list[str | IdentifierLookup] = [
+        query: list[IdentifierLookup] = [
             IdentifierLookup.from_identifier(
                 Identifier(
                     identifier=identifier,

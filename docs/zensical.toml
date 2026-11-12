@@ -1,10 +1,6 @@
 [project]
-copyright = "Copyright &copy; 2026 The bulk abstract ingest robot contributors"
-edit_uri = "edit/main/docs/docs/"
-extra_javascript = [
-    # https://unpkg.com/mermaid@11.17.2/dist/mermaid.min.js
-    "assets/mermaid.min.js",
-]
+copyright = "Copyright &copy; 2026 The DESTinY contributors"
+
 # toml-sort: disable
 nav = [
     { "Get started" = "index.md" },
@@ -21,12 +17,8 @@ repo_url = "https://github.com/destiny-evidence/bulk-abstract-ingest-robot"
 site_author = "Tim Repke"
 site_description = "Boosting DESTinY abstract coverage from academic database exports, one reference at a time."
 site_name = "Bulk Abstract Ingest Robot"
-site_url = "https://www.example.com/"
+#site_url = "https://www.example.com/"
 
-[project.extra]
-polyfills = [
-    { async = false, defer = false, path = "assets/iframe-worker-shim.js", type = "text/javascript" },
-]
 
 [[project.extra.social]]
 icon = "fontawesome/brands/github"
@@ -72,8 +64,9 @@ pymdownx.tasklist.custom_checkbox = true
 pymdownx.tilde = {}
 toc.permalink = true
 
-[project.plugins.offline]
-enabled = true
+[project.plugins]
+offline.enabled = true
+privacy.enabled = true
 
 [project.theme]
 features = [
