@@ -5,11 +5,11 @@ repos:
       - id: markdownlint-fix
         args:
           - --dot
-# Dropping this for now as it unintentionally messed with configs more than it helped.
-#  - repo: https://github.com/pappasam/toml-sort
-#    rev: v0.25.0
-#    hooks:
-#      - id: toml-sort-fix
+  # Dropping this for now as it unintentionally messed with configs more than it helped.
+  #  - repo: https://github.com/pappasam/toml-sort
+  #    rev: v0.25.0
+  #    hooks:
+  #      - id: toml-sort-fix
   - repo: https://github.com/pre-commit/mirrors-prettier
     rev: v4.0.0-alpha.8
     hooks:
