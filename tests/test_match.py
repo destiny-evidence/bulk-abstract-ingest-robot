@@ -24,6 +24,7 @@ from tests.util.fake_data import (
     abstracts_for,
     cache_entry,
     ods_reference,
+    title_with_distance,
     titles_for,
 )
 
@@ -75,6 +76,24 @@ class TestTitleMatching:
     )
     def test_title_filtering(self, match_runner, settings, kind, expected):
         assert match_runner.should_enhance(cache_entry(), ods_reference(titles=titles_for(kind, settings.max_title_slop))) is expected
+
+    @pytest.mark.parametrize("cached_is_longer", [True, False], ids=["cached title longer", "reference title longer"])
+    def test_title_length_mismatch_is_tolerated_on_either_side(self, match_runner, settings, cached_is_longer):
+        # The titles are identical except for `max_title_slop` extra letters — which side carries them must not matter
+        longer = title_with_distance(settings.max_title_slop)
+        cache, reference = (longer, TITLE) if cached_is_longer else (TITLE, longer)
+
+        assert match_runner.should_enhance(cache_entry(title=cache), ods_reference(titles=[reference])) is True
+
+    def test_titles_compatible_in_length_and_content(self, match_runner):
+        # Same length (after normalisation) and a handful of different letters: clearly the same work
+        assert match_runner.should_enhance(cache_entry(), ods_reference(titles=[TITLE.replace("cities", "coasts")])) is True
+
+    def test_similar_title_length_does_not_make_titles_compatible(self, match_runner):
+        # Identical length (after normalisation), but the middle is about kiln pottery and the ending about a critique: a different work, however long or short it is
+        incompatible = TITLE.replace("adaptation in urban areas", "typology at the kiln sites").replace("what works", "a critique")
+
+        assert match_runner.should_enhance(cache_entry(), ods_reference(titles=[incompatible])) is False
 
     def test_title_comparison_is_normalised(self, match_runner):
         # case, punctuation, digits and spacing differences are stripped before comparison
