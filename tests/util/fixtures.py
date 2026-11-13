@@ -103,9 +103,8 @@ def queue_tracker(queue_ingest: SearchIngest) -> MockIngestTracker:
 
 
 @pytest.fixture
-def queue_runner(runner_factory, settings, monkeypatch, queue_blob, db, queue_tracker) -> IngestionQueueRunner:
-    """IngestionQueueRunner talking to the blob and tracking doubles above instead of Azure and the tracking DB."""
-    monkeypatch.setattr("app.robots.queue.settings", settings)  # the checkpoint interval is read off the module-level settings
+def queue_runner(runner_factory, monkeypatch, queue_blob, db, queue_tracker) -> IngestionQueueRunner:
+    """IngestionQueueRunner talking to the blob and tracking doubles above instead of Azure and the tracking DB (the runner reads the checkpoint interval off its own settings, which the factory injects)."""
     monkeypatch.setattr("app.robots.queue.BlobClient", fake_blob_client(queue_blob))
     monkeypatch.setattr("app.robots.queue.IngestTracker", MagicMock(return_value=queue_tracker))  # the runner instantiates its tracker inside _loop_task
     return runner_factory(IngestionQueueRunner, store=MockStore(db))

@@ -66,7 +66,7 @@ class AbstractStore:
                 except ValidationError as exc:
                     record.encountered_parsing_error = True
                     self.logger.warning(f"Failed record validation: {exc.json(include_url=False)}")
-                except AssertionError as exc:
+                except (AssertionError, NotImplementedError, ValueError) as exc:
                     record.encountered_parsing_error = True
                     self.logger.warning(f"Failed record parsing: {exc}")
 

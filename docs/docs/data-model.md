@@ -108,7 +108,7 @@ erDiagram
 | `record_id`                     | Match runner   | First half of the composite primary key; foreign key to `records` with `ON DELETE CASCADE`.                         |
 | `destiny_id`                    | Match runner   | Second half of the primary key; the reference's ID in the repository (indexed — the enhance runner looks up by it). |
 | `abstract_enhancement_required` | Match runner   | The [enhancement rules](matching.md) say we should submit this record's abstract for this reference.                |
-| `enhancement_requested`         | Match runner   | An enhancement request was successfully sent to the repository for this reference.                                  |
+| `enhancement_requested`         | Match runner   | An enhancement request was successfully sent to the repository for this reference (stays false if sending failed).  |
 | `enhancement_submitted`         | Enhance runner | The enhancement actually reached the repository for this reference.                                                 |
 
 <!-- prettier-ignore -->

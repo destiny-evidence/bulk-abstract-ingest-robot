@@ -1,12 +1,28 @@
 """Runner that keeps matching cache entries to DESTinY IDs and checks plausibility of candidates."""
 
-import difflib
+import asyncio
 import re
+
+from rapidfuzz.distance import Levenshtein
 
 from app.db.schemas import ODSRecord, ParsedRecord
 from app.util import Runner
 
 ALPH = re.compile(r"[^a-z]+")
+
+
+def str_diff(a: str, b: str, max_diff: int) -> int:
+    """
+    Edit distance between two normalised texts.
+
+    Anything further away than `max_diff` comes back as `max_diff + 1` (the distance computation
+    stops early there), so callers just compare against the threshold.
+    """
+    return Levenshtein.distance(
+        ALPH.sub("", a.lower()),
+        ALPH.sub("", b.lower()),
+        score_cutoff=max_diff,
+    )
 
 
 class MatchRunner(Runner):
@@ -30,46 +46,33 @@ class MatchRunner(Runner):
             # None of the known publication years is within the tolerance
             return False
 
-        if cache_entry.title is not None and reference.titles is not None:
-            cached_title = ALPH.sub("", cache_entry.title.lower())
-            if not any(  # using inverted logic with `not any (<=)` so we don't always have to iterate the entire list as with `all (>)`
-                (
-                    title is not None
-                    and len(list(difflib.ndiff(cached_title, clean_reference_title := ALPH.sub("", title.lower()))))
-                    - min(len(cached_title), len(clean_reference_title))
-                    <= self.settings.max_title_slop
-                    for title in reference.titles
-                ),
-            ):
-                # None of the known titles are below the similarity threshold
-                return False
+        if (
+            cache_entry.title is not None
+            and reference.titles is not None
+            and not any(  # using inverted logic with `not any (<=)` so we don't always have to iterate the entire list as with `all (>)`
+                title is not None and str_diff(cache_entry.title, title, self.settings.max_title_slop) <= self.settings.max_title_slop
+                for title in reference.titles
+            )
+        ):
+            # None of the known titles are below the similarity threshold
+            return False
 
         # We have abstracts to compare to
-        if reference.abstracts is not None:
-            cached_abstract = ALPH.sub("", cache_entry.abstract.lower())
-            if any(
-                (
-                    # Existing abstract is valid
-                    abstract is not None
-                    and self.settings.min_abstract_length < len(abstract) < self.settings.max_abstract_length
-                    and (
-                        # Mode 1) Existing abstract is "good enough" -> don't enhance
-                        not self.settings.replace_abstracts_on_mismatch
-                        # Mode 2) Abstracts are similar (with slop) -> don't enhance
-                        or (
-                            len(list(difflib.ndiff(cached_abstract, clean_reference_abstract := ALPH.sub("", abstract.lower()))))
-                            - min(len(cached_abstract), len(clean_reference_abstract))
-                            <= self.settings.max_abstract_slop
-                        )
-                    )
-                    for abstract in reference.abstracts
-                ),
-            ):
-                # No need to submit this abstract as an enhancement, we have a good enough or similar abstract already in the repository
-                return False
-
-        # All checks passed, we can submit this abstract enhancement to the repository
-        return True
+        has_good_enough_abstract = reference.abstracts is not None and any(
+            # Existing abstract is valid (exists and within length bounds)
+            abstract is not None
+            and self.settings.min_abstract_length <= len(abstract) < self.settings.max_abstract_length
+            and (
+                # Mode 1) Existing abstract is "good enough" -> don't enhance
+                not self.settings.replace_abstracts_on_mismatch
+                # Mode 2) Abstracts are similar (with slop) -> don't enhance
+                or str_diff(cache_entry.abstract, abstract, self.settings.max_abstract_slop) <= self.settings.max_abstract_slop
+            )
+            for abstract in reference.abstracts
+        )
+        # If so, there is no need to submit this abstract as an enhancement, we have a good enough or similar abstract already in the repository;
+        # if all checks passed, we can submit this abstract enhancement to the repository
+        return not has_good_enough_abstract
 
     async def _loop_task(self) -> None:
         """Process single batch of enhancements."""
@@ -93,9 +96,16 @@ class MatchRunner(Runner):
         # Request to enhance references (several cache entries can point at the same reference, so ask about each one only once)
         requested_references = [(cache_entry, reference) for cache_entry, reference in filtered_references if reference.destiny_id is not None]
         if destiny_ids := list(dict.fromkeys(reference.destiny_id for _cache_entry, reference in requested_references if reference.destiny_id is not None)):
-            self.repository.request_to_enhance(
-                destiny_ids=destiny_ids,
-            )
+            try:
+                # The repository client is synchronous: keep its HTTP call off the event loop
+                await asyncio.to_thread(self.repository.request_to_enhance, destiny_ids=destiny_ids)
+            except Exception as e:  # noqa: BLE001 - the match results below must be persisted even if the request did not go out
+                # The pairs keep their `abstract_enhancement_required` flag without `enhancement_requested`, marking them for a re-request later
+                self.loop_logger.warning(
+                    f"Enhancement request for {len(destiny_ids):,} reference(s) failed ({e}); "
+                    f"persisting the batch without it, the references stay required-but-unrequested."
+                )
+                requested_references = []
 
         await self.store.persist_match_results(
             cache_entries=cache_entries,

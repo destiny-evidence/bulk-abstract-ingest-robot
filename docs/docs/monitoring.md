@@ -56,6 +56,10 @@ Currently tracked metrics:
 Because one record can match several references, the match counters intentionally run ahead of the record counters: `matches_total / records_evaluated` is roughly how many repository hits an average record gets.
 
 <!-- prettier-ignore -->
+!!! tip "Reading required-but-unrequested pairs"
+    `matches_abstract_enhancement_required − matches_enhancement_requested` is the number of accepted pairs whose enhancement request has not gone out. A momentary gap is normal queueing; a gap that persists is a failing request API: when the repository is unreachable, the match runner logs it (`Enhancement request for … failed`) and records the batch anyway, leaving those pairs `required` without `requested`. The runner does not retry them by itself — re-request them (or sweep for that flag combination) once the repository answers again, before the 14-day purge [takes the rows](#compacting-compactsql-daily-at-1000).
+
+<!-- prettier-ignore -->
 !!! tip "Reading the parsing-error counter"
     The robot keeps working when it hits an unparsable payload, so this metric is the only thing that surfaces a parser gap: any growth means rows are being parked, and the reason is in the match runner's log (`Failed record parsing: …` / `Failed record validation: …`). Fix the parser and clear the flag before the 14-day purge removes those rows — see [Data model → Parser fixes](data-model.md#parser-fixes).
 

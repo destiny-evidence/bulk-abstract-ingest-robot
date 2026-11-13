@@ -154,16 +154,26 @@ class TestParsingErrors:
         assert rows[0].encountered_parsing_error is True
         assert rows[1].has_eligible_abstract is False
 
-    @pytest.mark.xfail(
-        reason="`get_next_request_batch` parks the parse failures it expects (AssertionError, ValidationError); a row in a `Format` without a parser raises NotImplementedError, which still aborts the entire batch instead of parking the record"
-    )
     def test_record_in_unimplemented_format_is_parked(self, store):
+        """A row in a `Format` without a parser parks on its own — it must not abort the batch the good records share with it."""
         unimplemented = Record(format=Format.WOS_API, raw={"uid": "WOS:000300182800012", "title": ["Adaptation pathways in coastal cities"]})
 
         batches, rows = run_batches(store, scopus_row(0), unimplemented)
 
         assert [entry.scopus_id for entry in batches[0]] == [scopus_record(0)["eid"]]
         assert rows[-1].encountered_parsing_error is True
+
+    def test_unparseable_cover_date_lands_with_unknown_year(self, store):
+        """'In Press' is not a parse failure: the year simply stays unknown (the year check tolerates that), the record stays in play."""
+        in_press = scopus_record(0)
+        in_press["prism:coverDate"] = "In Press"
+        in_press.pop("prism:coverDisplayDate", None)
+
+        batches, rows = run_batches(store, scopus_row(raw=in_press))
+
+        assert [entry.scopus_id for entry in batches[0]] == [in_press["eid"]]  # offered normally, not parked
+        assert batches[0][0].publication_year is None
+        assert rows[0].encountered_parsing_error is False
 
 
 class TestMatchPersistence:

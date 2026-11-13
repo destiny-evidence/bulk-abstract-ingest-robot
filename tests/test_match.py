@@ -13,10 +13,12 @@ import asyncio
 import pytest
 
 from tests.util.fake_data import (
+    DEFAULT_ABSTRACT,
     DESTINY_ID,
     DIFFERENT_ABSTRACT,
     MINIMAL_ABSTRACT,
     NEW_ABSTRACT,
+    OTHER_ABSTRACT,
     OTHER_ID,
     SAME_ABSTRACT,
     TITLE,
@@ -116,7 +118,7 @@ class TestAbstractMatching:
             ("exact", False, False),  # an identical abstract is already in the repository
             ("holds_more_than_ours", True, False),  # it carries our abstract plus a slop beyond: a length gap counts as a difference either way
             ("unrelated", True, False),  # whether the repository abstract says something else only matters when the texts are compared
-            ("too_short", True, True),  # repository abstracts at or below min_abstract_length are ignored
+            ("too_short", True, True),  # repository abstracts below min_abstract_length are ignored
             ("just_below_max_length", False, False),  # long, but still short enough to be trusted
             ("at_max_length", True, True),  # max_abstract_length is where a repository abstract stops being trusted, in either mode
             ("overlong", True, True),  # ... so even the very same text we are about to submit stops blocking once it is over the threshold
@@ -191,6 +193,32 @@ class TestAbstractMatching:
         settings.replace_abstracts_on_mismatch = True
 
         assert match_runner.should_enhance(cache_entry(), ods_reference(abstracts=[abstract_with_extra_letters(settings.max_abstract_slop * 3)])) is True
+
+    @pytest.mark.parametrize("use_slop", [True, False], ids=["compared", "presence only"])
+    def test_repository_abstract_at_the_minimum_counts_as_a_real_abstract(self, match_runner, settings, use_slop):
+        """Symmetry with the cached side (`test_cached_abstract_shortness`): an abstract of exactly `min_abstract_length` characters is trustworthy on either side of the comparison."""
+        settings.replace_abstracts_on_mismatch = use_slop
+        at_minimum = abstract_with_raw_length(settings.min_abstract_length, MINIMAL_ABSTRACT)
+
+        # presence-only: it blocks submission on its own; compared: it is unrelated to our text, so it does not block
+        assert match_runner.should_enhance(cache_entry(), ods_reference(abstracts=[at_minimum])) is use_slop
+
+    def test_minor_typo_in_a_long_repository_abstract_still_reads_as_the_same_abstract(self, match_runner, settings):
+        """
+        Regression test: the earlier character-diff metric turned unreliable past 200 characters (difflib's `autojunk`
+        heuristic) and scored a few typos in a long abstract as a wholly different text, so the robot would have
+        re-submitted an abstract the repository already held.
+        """
+        settings.replace_abstracts_on_mismatch = True
+        long_abstract = " ".join([DEFAULT_ABSTRACT] * 6)  # well past the 200-character mark the old metric broke at, still inside the trust window
+        assert settings.min_abstract_length <= len(long_abstract) < settings.max_abstract_length
+
+        typo = long_abstract.replace("hazard exposure", "hazard expresure", 1)
+        assert match_runner.should_enhance(cache_entry(abstract=long_abstract), ods_reference(abstracts=[typo])) is False
+
+        # and the other direction still holds: a genuinely different long abstract does not block the submission
+        unrelated_long = " ".join([DIFFERENT_ABSTRACT, OTHER_ABSTRACT] * 3)
+        assert match_runner.should_enhance(cache_entry(abstract=long_abstract), ods_reference(abstracts=[unrelated_long])) is True
 
     def test_the_check_mode_decides_a_different_repository_abstract(self, match_runner, settings):
         """
@@ -272,6 +300,26 @@ class TestLoopTask:
 
         match_runner.repository.request_to_enhance.assert_not_called()
         match_runner.store.persist_match_results.assert_awaited_once()
+
+    def test_failed_enhancement_request_keeps_the_match_results(self, match_runner):
+        """
+        A briefly unreachable repository must not take the evaluated batch down with it: the match results persist
+        (no re-querying, no duplicate requests), and the pairs simply stay required-but-unrequested until re-requested.
+        """
+        entry = cache_entry()
+        reference = ods_reference()
+        match_runner.store.get_next_request_batch.return_value = [entry]
+        match_runner.repository.query_repository.return_value = [(entry, reference)]
+        match_runner.repository.request_to_enhance.side_effect = ConnectionError("repository unreachable")
+
+        asyncio.run(match_runner._loop_task())  # the failure must not escape the loop task
+
+        match_runner.store.persist_match_results.assert_awaited_once_with(
+            cache_entries=[entry],
+            matched_references=[(entry, reference)],
+            filtered_references=[(entry, reference)],
+            requested_references=[],  # the request did not go out, so the pair is not remembered as requested
+        )
 
     def test_enhancement_check_mode_changes_what_is_requested(self, match_runner, settings):
         """The same batch yields a request in comparison mode and none in presence-only mode (the default)."""

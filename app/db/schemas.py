@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 from datetime import datetime
 from enum import Enum
 from typing import Annotated, Any
@@ -125,7 +126,9 @@ class ParsedRecord(RecordIdentifiers, _BiblioMixin, _TrackingMixin):
             py: int | None = None
             py_: str | None = record.raw.get("prism:coverDate") or record.raw.get("prism:coverDisplayDate")
             if py_ and len(py_) >= 4:  # noqa: PLR2004
-                py = int(py_[:4])
+                # An unparseable leading four characters (e.g. "In Press") just leaves the year unknown; the year check is lenient about that
+                with contextlib.suppress(ValueError):
+                    py = int(py_[:4])
 
             scopus_id = record.raw.get("eid") or record.raw.get("dc:identifier")
             if scopus_id and record.scopus_id and scopus_id != record.scopus_id:

@@ -4,13 +4,12 @@ import json
 from collections.abc import AsyncGenerator
 
 from azure.storage.blob.aio import BlobClient
+from pydantic import ValidationError
 
 from app.db.engine import Persist
 from app.db.ingest import IngestTracker
 from app.db.schemas import Format, Record
-from app.util import Runner, async_batched, get_settings
-
-settings = get_settings()
+from app.util import Runner, async_batched
 
 
 async def _read_from_blob_storage(
@@ -51,6 +50,7 @@ class IngestionQueueRunner(Runner):
     async def _loop_task(self) -> None:
         tracking = IngestTracker(settings=self.settings, logger=self.loop_logger.getChild("tracking-db"))
         num_rows = 0
+        num_skipped = 0
         latest_offset = 0
         async with (
             tracking.exclusive_transfer_request() as request,
@@ -71,25 +71,29 @@ class IngestionQueueRunner(Runner):
 
             async for batch in async_batched(
                 _read_from_blob_storage(sas_url=request.azure_link, byte_offset=request.checkpoint_bytes or 0),
-                batch_size=settings.api_wrapper_checkpoint_interval,
+                batch_size=self.settings.api_wrapper_checkpoint_interval,
             ):
                 for line, offset in batch:
+                    # Offset advances for every line, broken ones included: skipping is deterministic, so a crashed run
+                    # resuming here makes the same skip decision and the checkpoint can never get stuck on a poison line
+                    latest_offset = offset
+                    record: Record | None = None
+                    skip_reason = ""
+                    try:
+                        raw = json.loads(line)
+                        if isinstance(raw, dict):
+                            record = Record(raw=raw, format=Format.SCOPUS_API)  # TODO: adapt the format to the actual one
+                        else:
+                            skip_reason = f"Parsing line resulted in type {type(raw).__name__}, not a record dict"
+                    except (ValueError, ValidationError) as exc:
+                        skip_reason = str(exc)
+                    if record is None:
+                        num_skipped += 1
+                        self.logger.warning(f"Skipping malformed ingest line ending at byte {offset}: {skip_reason}")
+                        continue
                     self.total_entries_processed += 1
                     num_rows += 1
-                    latest_offset = offset
-                    session.add(
-                        Record(
-                            format=Format.SCOPUS_API,  # TODO: adapt the format to the actual one
-                            raw=json.loads(line),
-                            openalex_id=None,
-                            doi=None,
-                            wos_id=None,
-                            scopus_id=None,
-                            s2_id=None,
-                            pubmed_id=None,
-                            dimensions_id=None,
-                        ),
-                    )
+                    session.add(record)
 
                 # Log checkpoint so we can recover in case of a crash
                 await tracking.log_checkpoint(
@@ -106,6 +110,12 @@ class IngestionQueueRunner(Runner):
                     f"[Transfer {request.ingest_id}] Transferred {num_rows:,} rows to queue at byte {latest_offset:,}.",
                 )
 
-        await tracking.mark_queued(ingest_id=request.ingest_id)
+        try:
+            await tracking.mark_queued(ingest_id=request.ingest_id)
+        except Exception as exc:
+            self.loop_logger.warning(f"Failed to mark ingestion ({request.ingest_id}) as done: {exc}")
+            self.loop_logger.exception(exc)
 
-        self.loop_logger.info(f"[Total: {self.total_entries_processed:,} entries] Transferred {num_rows:,} rows to queue.")
+        self.loop_logger.info(
+            f"[Total: {self.total_entries_processed:,} entries] Transferred {num_rows:,} rows to queue ({num_skipped:,} malformed lines skipped).",
+        )

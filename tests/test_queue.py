@@ -19,7 +19,6 @@ from unittest.mock import MagicMock
 
 import pytest
 from azure.core.exceptions import ServiceResponseError
-from pydantic import ValidationError
 from sqlalchemy.exc import OperationalError
 
 from app.db.schemas import Format
@@ -215,23 +214,37 @@ class TestTransfer:
 
 
 class TestFormatProblems:
-    def test_unknown_format_stops_the_transfer_at_the_poison_line(self, queue_runner, queue_blob, db, queue_ingest, queue_tracker, settings):
+    def test_poison_line_is_skipped_and_the_transfer_finishes(self, queue_runner, queue_blob, db, queue_ingest, queue_tracker, settings):
         # lines 1-2 are fine, line 3 is an HTML error page someone uploaded instead of the export, lines 4-6 are fine
-        queue_blob.data = stub_jsonl(count=2) + b"<html><body>403 Forbidden</body></html>\n" + stub_jsonl(first=4, count=3)
+        poison = b"<html><body>403 Forbidden</body></html>\n"
+        queue_blob.data = stub_jsonl(count=2) + poison + stub_jsonl(first=4, count=3)
         settings.api_wrapper_checkpoint_interval = 2
 
-        with pytest.raises(json.JSONDecodeError):
-            asyncio.run(queue_runner._loop_task())
+        asyncio.run(queue_runner._loop_task())  # the poison line must not stop (or crash-loop) the transfer
 
-        assert [record.raw for record in db.records] == [stub(1), stub(2)]  # only the checkpointed prefix survived
-        assert queue_tracker.trace == [("queueing", True, False, None, None), ("checkpoint", True, False, 2 * STUB_LINE_BYTES, 2)]
-        assert (queue_ingest.is_queueing, queue_ingest.is_queued) == (True, False)  # left queueing for a retry ...
+        assert [record.raw for record in db.records] == [stub(i) for i in (1, 2, 4, 5, 6)]  # every good line lands, the bad one is skipped
+        assert queue_runner.total_entries_processed == 5  # skipped lines are not processed entries
+        poison_end = 2 * STUB_LINE_BYTES + len(poison)
+        assert queue_tracker.trace == [
+            ("queueing", True, False, None, None),
+            ("checkpoint", True, False, 2 * STUB_LINE_BYTES, 2),
+            ("checkpoint", True, False, poison_end + STUB_LINE_BYTES, 3),  # the skipped line advances the byte offset ...
+            ("checkpoint", True, False, poison_end + 3 * STUB_LINE_BYTES, 5),  # ... but counts for no row
+            ("queued", True, True, poison_end + 3 * STUB_LINE_BYTES, 5),
+        ]
+        assert (queue_ingest.is_queueing, queue_ingest.is_queued) == (True, True)  # the file is done, not stuck at the poison line
+        assert queue_blob.requests == [0]  # one download, nothing to retry
 
-        with pytest.raises(json.JSONDecodeError):  # ... and the retry hits the same poison line at the same place
-            asyncio.run(queue_runner._loop_task())
-        assert queue_blob.requests == [0, 2 * STUB_LINE_BYTES]
-        assert db.commits == 1
-        assert len(db.records) == 2
+    def test_a_file_of_only_poison_is_queued_empty(self, queue_runner, queue_blob, db, queue_ingest, settings):
+        # an HTML error page for the whole "export": skipped in full, the request completes instead of livelocking on it
+        queue_blob.data = b"<html><body>403 Forbidden</body></html>\n<html><body>gone</body></html>\n"
+        settings.api_wrapper_checkpoint_interval = 1
+
+        asyncio.run(queue_runner._loop_task())
+
+        assert db.records == []
+        assert queue_runner.total_entries_processed == 0
+        assert queue_ingest.is_queued is True
 
     def test_valid_json_objects_are_queued_verbatim_whatever_their_shape(self, queue_runner, queue_blob, db, queue_ingest, settings):
         # queue.py does not interpret the payload: a Crossref-shaped object among the Scopus lines is stored raw and
@@ -246,16 +259,15 @@ class TestFormatProblems:
         assert all(record.format is Format.SCOPUS_API for record in db.records)
         assert queue_ingest.is_queued is True
 
-    @pytest.mark.xfail(
-        reason="queue.py feeds json.loads() output straight into Record.raw (typed dict[str, Any]) without a shape check, so a whole-file JSON array enters the queue as one poisoned raw 'record'",
-    )
-    def test_json_that_is_not_a_line_of_objects_is_rejected(self, queue_runner, queue_blob, settings):
+    def test_json_that_is_not_a_line_of_objects_is_rejected(self, queue_runner, queue_blob, db, queue_ingest, settings):
         # the classic upload mistake: a raw API response (one JSON array) instead of JSON lines
         queue_blob.data = (json.dumps([stub(1), stub(2)]) + "\n").encode()
         settings.api_wrapper_checkpoint_interval = 1
 
-        with pytest.raises(ValidationError):
-            asyncio.run(queue_runner._loop_task())
+        asyncio.run(queue_runner._loop_task())
+
+        assert db.records == []  # the array is skipped, not queued as one poisoned raw 'record'
+        assert queue_ingest.is_queued is True  # the file is read to its end; a skipped line is final, not a reason to stall the transfer
 
 
 class TestProcessDiesMidFlight:
