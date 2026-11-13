@@ -679,6 +679,7 @@ Changes should be weighed against that end goal (see the discussion in <a href="
     subgraph cache["Metadata cache (Postgres)"]
         INGEST[("search_ingest&lt;br/&gt;&lt;i&gt;transfer requests&lt;/i&gt;")]
         RECORDS[("records&lt;br/&gt;&lt;i&gt;raw records +&lt;br/&gt;tracking state&lt;/i&gt;")]
+        MATCHES[("m2m_record_ods&lt;br/&gt;&lt;i&gt;record ↔ reference&lt;br/&gt;pairs + flags&lt;/i&gt;")]
     end
 
     subgraph robot["Bulk abstract ingest robot"]
@@ -692,7 +693,9 @@ Changes should be weighed against that end goal (see the discussion in <a href="
     INGEST -.-&gt;|"transfer request&lt;br/&gt;(SAS link)"| QUEUE
     QUEUE --&gt;|"store raw records"| RECORDS
     RECORDS --&gt;|"unevaluated batch"| MATCH
-    RECORDS --&gt;|"eligible records"| ENHANCE
+    MATCH --&gt;|"one row per matched&lt;br/&gt;reference"| MATCHES
+    MATCHES --&gt;|"records to enhance&lt;br/&gt;(by DESTinY ID)"| ENHANCE
+    RECORDS --&gt;|"raw payload"| ENHANCE
     %% MATCH --&gt;|"log eligibility"| RECORDS
     MATCH --&gt;|"lookup by configured&lt;br/&gt;identifier (DOI),&lt;br/&gt;request enhancements"| REPO
     REPO --&gt;|"approved batches"| ENHANCE
@@ -701,7 +704,7 @@ Changes should be weighed against that end goal (see the discussion in <a href="
 <h2 id="where-to-go-next">Where to go next<a class="headerlink" href="#where-to-go-next" title="Permanent link">&para;</a></h2>
 <ul>
 <li><a href="architecture.html"><strong>Architecture</strong></a> — the three runners, how they hand work to each other, and how the design survives crashes.</li>
-<li><a href="data-model.html"><strong>Data model</strong></a> — the two tables (<code>search_ingest</code>, <code>records</code>) and their tracking columns.</li>
+<li><a href="data-model.html"><strong>Data model</strong></a> — the three tables (<code>search_ingest</code>, <code>records</code>, <code>m2m_record_ods</code>) and their tracking columns.</li>
 <li><a href="matching.html"><strong>Enhancement rules</strong></a> — when an abstract is considered worth submitting, including the decision tree.</li>
 <li><a href="configuration.html"><strong>Configuration</strong></a> — all environment variables and logging options.</li>
 <li><a href="monitoring.html"><strong>Monitoring</strong></a> — how progress is tracked in the database, compacted, and viewed.</li>

@@ -442,6 +442,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#m2m_record_ods-the-matched-references" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>m2m_record_ods</code> — the matched references
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#search_ingest-transfer-requests" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -657,6 +668,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#m2m_record_ods-the-matched-references" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>m2m_record_ods</code> — the matched references
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#search_ingest-transfer-requests" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -713,7 +735,7 @@
 
 
 <h1 id="data-model">Data model<a class="headerlink" href="#data-model" title="Permanent link">&para;</a></h1>
-<p>The robot owns its Postgres database and treats it as the durable work queue between runners. There are exactly two tables owned by the runners, both created automatically from the SQLModel definitions in <code>app/db/schemas.py</code> at startup (<code>SQLModel.metadata.create_all</code>). The ops scripts additionally maintain a third, plain key/value <code>monitoring</code> table (created by <code>scripts/tracking.sql</code>, see <a href="monitoring.html">Monitoring</a>).</p>
+<p>The robot owns its Postgres database and treats it as the durable work queue between runners. There are exactly three tables owned by the runners, all created automatically from the SQLModel definitions in <code>app/db/schemas.py</code> at startup (<code>SQLModel.metadata.create_all</code>). The ops scripts additionally maintain a fourth, plain key/value <code>monitoring</code> table (created by <code>scripts/tracking.sql</code>, see <a href="monitoring.html">Monitoring</a>).</p>
 <h2 id="records-the-metadata-cache"><code>records</code> — the metadata cache<a class="headerlink" href="#records-the-metadata-cache" title="Permanent link">&para;</a></h2>
 <p>One row per raw source record (one JSONL line from an export file). The record is stored <strong>unparsed</strong> and only converted into bibliographic fields when a runner needs it — a thin per-format parser (<code>ParsedRecord._parse_record_kwargs</code>) maps the raw payload of a given <code>format</code> (currently <code>scopus_api</code>) onto title, abstract, publication year and identifiers.</p>
 <!-- prettier-ignore -->
@@ -735,15 +757,12 @@
 <td>Internal primary key (UUIDv6, time-ordered).</td>
 </tr>
 <tr>
-<td><code>destiny_id</code></td>
-<td>DESTinY repository ID once the match runner matched the record; indexed.</td>
-</tr>
-<tr>
 <td><code>openalex_id</code>, <code>doi</code>, <code>wos_id</code>, <code>scopus_id</code>, <code>s2_id</code>, <code>pubmed_id</code>, <code>dimensions_id</code></td>
 <td>External identifiers (indexed). OpenAlex IDs are normalised to <code>W\d+</code>, DOIs lowercased without URL prefix.</td>
 </tr>
 </tbody>
 </table>
+<p>Which DESTinY references a record matched is <strong>not</strong> a column here — a record can match several references, so those live in <a href="#m2m_record_ods-the-matched-references"><code>m2m_record_ods</code></a>.</p>
 <h3 id="payload-columns">Payload columns<a class="headerlink" href="#payload-columns" title="Permanent link">&para;</a></h3>
 <table>
 <thead>
@@ -768,7 +787,7 @@
 </tbody>
 </table>
 <h3 id="tracking-columns">Tracking columns<a class="headerlink" href="#tracking-columns" title="Permanent link">&para;</a></h3>
-<p>Every flag is written by a specific step of the pipeline, which makes progress observable and lets each runner pick up exactly where it left off:</p>
+<p>Every flag is written by a specific step of the pipeline, which makes progress observable and lets each runner pick up exactly where it left off. These three describe the <strong>record itself</strong>; what the robot did about each reference it matched is tracked per match instead (see <a href="#m2m_record_ods-the-matched-references"><code>m2m_record_ods</code></a>).</p>
 <table>
 <thead>
 <tr>
@@ -793,29 +812,9 @@
 <td>Match runner</td>
 <td>The record has been checked against the repository once.</td>
 </tr>
-<tr>
-<td><code>found_destiny_reference</code></td>
-<td>Match runner</td>
-<td>A matching reference was found in the repository (<code>destiny_id</code> filled).</td>
-</tr>
-<tr>
-<td><code>abstract_enhancement_required</code></td>
-<td>Match runner</td>
-<td>The <a href="matching.html">enhancement rules</a> say we should submit this abstract.</td>
-</tr>
-<tr>
-<td><code>enhancement_requested</code></td>
-<td>Match runner</td>
-<td>An enhancement request was successfully sent to the repository.</td>
-</tr>
-<tr>
-<td><code>enhancement_submitted</code></td>
-<td>Enhance runner</td>
-<td>The enhancement was actually submitted for this record.</td>
-</tr>
 </tbody>
 </table>
-<p>A record therefore walks a funnel like this (each stage is one indexed column, so every batch query is a simple "where not yet done" filter):</p>
+<p>A record therefore walks a funnel like this (each stage is one indexed column or one row in <code>m2m_record_ods</code>, so every batch query is a simple "where not yet done" filter):</p>
 <pre class="mermaid"><code>flowchart LR
     NEW["queued&lt;br/&gt;&lt;i&gt;(ingest transfer)&lt;/i&gt;"] --&gt; PARSE{"raw payload&lt;br/&gt;parses?"}
     PARSE -- "no" --&gt; PARKED["encountered&lt;br/&gt;parsing_error"]
@@ -823,15 +822,15 @@
     PARSE -- yes --&gt; ELIG{"has_eligible&lt;br/&gt;abstract?"}
     ELIG -- "no (too short)" --&gt; DEAD["skipped"]
     ELIG -- yes --&gt; EVAL["evaluated"]
-    EVAL -- "no match in ODS" --&gt; NOMATCH["no destiny_id"]
-    EVAL -- matched --&gt; FOUND["found_destiny&lt;br/&gt;reference"]
-    FOUND -- "rules reject" --&gt; NOTREQ["enhancement&lt;br/&gt;not required"]
-    FOUND -- "rules pass" --&gt; REQ["enhancement&lt;br/&gt;requested"]
+    EVAL -- "no match in ODS" --&gt; NOMATCH["no match row"]
+    EVAL -- matched --&gt; MATCHROW["row in&lt;br/&gt;m2m_record_ods"]
+    MATCHROW -- "rules reject" --&gt; NOTREQ["enhancement&lt;br/&gt;not required"]
+    MATCHROW -- "rules pass" --&gt; REQ["enhancement&lt;br/&gt;requested"]
     REQ --&gt; SUB["enhancement&lt;br/&gt;submitted"]
 
     style DEAD fill:transparent
     style PARKED fill:#f6e7d7,stroke:#c58b4b</code></pre>
-<p>All flags from the match stage are persisted in a <strong>single transaction</strong> per batch, so an interrupted run never leaves a half-updated batch behind.</p>
+<p>Everything the match stage learns — the record's <code>evaluated</code> flag, the new match rows and their flags — is persisted in a <strong>single transaction</strong> per batch, so an interrupted run never leaves a half-updated batch behind.</p>
 <!-- prettier-ignore -->
 <div class="admonition note">
 <p class="admonition-title">A parked record is not evaluated</p>
@@ -846,6 +845,72 @@
 </span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="k">UPDATE</span><span class="w"> </span><span class="n">records</span><span class="w"> </span><span class="k">SET</span><span class="w"> </span><span class="n">encountered_parsing_error</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">false</span><span class="w"> </span><span class="k">WHERE</span><span class="w"> </span><span class="n">encountered_parsing_error</span><span class="p">;</span>
 </span></code></pre></div>
 <p>No restart is strictly needed — the runner re-reads the table every <code>MATCH_INTERVAL_SECONDS</code>, so clearing the flag is enough for the next loop to pick the records up. Restart the match runner when the parser itself changed, of course.</p>
+<h2 id="m2m_record_ods-the-matched-references"><code>m2m_record_ods</code> — the matched references<a class="headerlink" href="#m2m_record_ods-the-matched-references" title="Permanent link">&para;</a></h2>
+<p>One row per record/reference pair the match runner found. Both directions are genuinely many-to-many: one lookup (say a DOI) can hit several references the repository has not merged yet, and several cached rows from different exports can point at the same reference. The reference itself is not copied here — only its ID, so the pairing survives restarts without duplicating repository data.</p>
+<p>The <strong>existence of a row is the statement that a reference was found</strong>; there is no separate "we found something" flag on <code>records</code>.</p>
+<pre class="mermaid"><code>erDiagram
+    records ||--o{ m2m_record_ods : "matched to"
+    ODS_REFERENCE ||--o{ m2m_record_ods : "is matched by"
+
+    records {
+        uuid record_id PK "cached raw record"
+    }
+    ODS_REFERENCE {
+        uuid destiny_id PK "in the repository, not in this database"
+    }
+    m2m_record_ods {
+        uuid record_id PK "foreign key to records"
+        uuid destiny_id PK "indexed"
+        bool abstract_enhancement_required
+        bool enhancement_requested
+        bool enhancement_submitted
+    }</code></pre>
+<table>
+<thead>
+<tr>
+<th>Column</th>
+<th>Set by</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>record_id</code></td>
+<td>Match runner</td>
+<td>First half of the composite primary key; foreign key to <code>records</code> with <code>ON DELETE CASCADE</code>.</td>
+</tr>
+<tr>
+<td><code>destiny_id</code></td>
+<td>Match runner</td>
+<td>Second half of the primary key; the reference's ID in the repository (indexed — the enhance runner looks up by it).</td>
+</tr>
+<tr>
+<td><code>abstract_enhancement_required</code></td>
+<td>Match runner</td>
+<td>The <a href="matching.html">enhancement rules</a> say we should submit this record's abstract for this reference.</td>
+</tr>
+<tr>
+<td><code>enhancement_requested</code></td>
+<td>Match runner</td>
+<td>An enhancement request was successfully sent to the repository for this reference (stays false if sending failed).</td>
+</tr>
+<tr>
+<td><code>enhancement_submitted</code></td>
+<td>Enhance runner</td>
+<td>The enhancement actually reached the repository for this reference.</td>
+</tr>
+</tbody>
+</table>
+<!-- prettier-ignore -->
+<div class="admonition note">
+<p class="admonition-title">Why the flags are not on <code>records</code></p>
+<p>Whether an enhancement is wanted, requested or submitted is a property of the <em>pair</em>: the rules compare one record's abstract against one reference's abstract, the repository grants enhancement per reference, and a record matched to two references may need to enhance only one of them. Keeping the flags on the match row is what makes "we already asked about this reference" observable even when the same record matched several of them.</p>
+</div>
+<p>Two consequences for the runners:</p>
+<ul>
+<li><strong>Re-evaluating a record does not duplicate matches.</strong> <code>persist_match_results</code> inserts only the pairs it does not already know, so a record that is picked up again after a parser fix keeps its history (and its already-requested references).</li>
+<li><strong>The enhance runner serves one record per reference.</strong> When the repository hands out an approved batch of DESTinY IDs, the store joins this table and picks a single cached row per ID — several rows claiming the same reference only need one enhancement.</li>
+</ul>
 <h2 id="search_ingest-transfer-requests"><code>search_ingest</code> — transfer requests<a class="headerlink" href="#search_ingest-transfer-requests" title="Permanent link">&para;</a></h2>
 <p>One row per source file to ingest. This is both the signal to the queue runner ("there is work") and the progress tracker ("resume here if we crash").</p>
 <table>

@@ -604,7 +604,7 @@
 <p>The robot reports through its database — there is no metrics server and nothing is pushed anywhere. A small <code>sql-cron</code> service (in <code>compose.yaml</code>) runs SQL scripts from <code>scripts/</code> on a schedule: one collects counters into a <code>monitoring</code> table, one keeps that table (and the cache itself) from growing without bound, and one turns the stored counters into a readable snapshot.</p>
 <pre class="mermaid"><code>flowchart LR
     subgraph cache["Postgres cache"]
-        DATA[("records ·&lt;br/&gt;search_ingest")]
+        DATA[("records ·&lt;br/&gt;m2m_record_ods ·&lt;br/&gt;search_ingest")]
         MON[("monitoring&lt;br/&gt;&lt;i&gt;timestamp · key ·&lt;br/&gt;value · type&lt;/i&gt;")]
     end
     TRACK["scripts/tracking.sql&lt;br/&gt;&lt;i&gt;sql-cron: every minute&lt;/i&gt;"]
@@ -647,7 +647,7 @@
 </tr>
 </tbody>
 </table>
-<p><strong>Record funnel</strong> (counted over <code>records</code>, one metric per tracking flag — see <a href="data-model.html#tracking-columns">Data model → Tracking columns</a>):</p>
+<p><strong>Record funnel</strong> (counted over <code>records</code> — see <a href="data-model.html#tracking-columns">Data model → Tracking columns</a>):</p>
 <table>
 <thead>
 <tr>
@@ -669,27 +669,44 @@
 <td>rows checked against the repository</td>
 </tr>
 <tr>
-<td><code>records_found_destiny_reference</code></td>
-<td>rows matched to a DESTinY reference</td>
-</tr>
-<tr>
-<td><code>records_abstract_enhancement_required</code></td>
-<td>rows the <a href="matching.html">enhancement rules</a> accepted</td>
-</tr>
-<tr>
-<td><code>records_enhancement_requested</code></td>
-<td>rows an enhancement request was sent for</td>
-</tr>
-<tr>
-<td><code>records_enhancement_submitted</code></td>
-<td>rows whose enhancement actually reached the repository</td>
-</tr>
-<tr>
 <td><code>records_encountered_parsing_error</code></td>
 <td>rows parked because their raw payload could not be parsed</td>
 </tr>
 </tbody>
 </table>
+<p><strong>Match funnel</strong> (counted over <code>m2m_record_ods</code>, one row per record/reference pair — see <a href="data-model.html#m2m_record_ods-the-matched-references">Data model → <code>m2m_record_ods</code></a>):</p>
+<table>
+<thead>
+<tr>
+<th>Metric</th>
+<th>Counts</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>matches_total</code></td>
+<td>references the cached records were matched to</td>
+</tr>
+<tr>
+<td><code>matches_abstract_enhancement_required</code></td>
+<td>pairs the <a href="matching.html">enhancement rules</a> accepted</td>
+</tr>
+<tr>
+<td><code>matches_enhancement_requested</code></td>
+<td>pairs an enhancement request was sent for</td>
+</tr>
+<tr>
+<td><code>matches_enhancement_submitted</code></td>
+<td>pairs whose enhancement actually reached the repository</td>
+</tr>
+</tbody>
+</table>
+<p>Because one record can match several references, the match counters intentionally run ahead of the record counters: <code>matches_total / records_evaluated</code> is roughly how many repository hits an average record gets.</p>
+<!-- prettier-ignore -->
+<div class="admonition tip">
+<p class="admonition-title">Reading required-but-unrequested pairs</p>
+<p><code>matches_abstract_enhancement_required − matches_enhancement_requested</code> is the number of accepted pairs whose enhancement request has not gone out. A momentary gap is normal queueing; a gap that persists is a failing request API: when the repository is unreachable, the match runner logs it (<code>Enhancement request for … failed</code>) and records the batch anyway, leaving those pairs <code>required</code> without <code>requested</code>. The runner does not retry them by itself — re-request them (or sweep for that flag combination) once the repository answers again, before the 14-day purge <a href="#compacting-compactsql-daily-at-1000">takes the rows</a>.</p>
+</div>
 <!-- prettier-ignore -->
 <div class="admonition tip">
 <p class="admonition-title">Reading the parsing-error counter</p>
@@ -701,12 +718,12 @@
 <ol>
 <li><strong>Aggregate aged-out metrics.</strong> Raw (<code>orig</code>) rows older than seven days are collapsed into one daily <code>min</code> / <code>avg</code> / <code>max</code> row per metric key, and the raw rows are dropped.</li>
 <li><strong>Cap the table size.</strong> Only the 10,000 most recent <code>monitoring</code> rows survive each run.</li>
-<li><strong>Purge cache rows that no longer matter.</strong> Submitted or permanently ineligible records older than 14 days are deleted from <code>records</code>, so the cache does not grow forever while the raw source data stays in (cold) blob storage anyway and can be re-ingested via a new <code>search_ingest</code> row.</li>
+<li><strong>Purge cache rows that no longer matter.</strong> Records older than 14 days that are not parked and have no match still awaiting its enhancement (required and not yet submitted) are deleted from <code>records</code>; their <code>m2m_record_ods</code> rows follow via <code>ON DELETE CASCADE</code>. The cache therefore does not grow forever while the raw source data stays in (cold) blob storage anyway and can be re-ingested via a new <code>search_ingest</code> row.</li>
 </ol>
 <!-- prettier-ignore -->
 <div class="admonition warning">
 <p class="admonition-title">The purge can outrun the match runner</p>
-<p><code>abstract_enhancement_required</code> defaults to <code>false</code> — so records that were <em>never evaluated</em> (e.g. the robot was down while a large transfer ran) are also deleted once they are 14 days old, and will never be retried. Lengthen the interval if your batches may lag that far behind.</p>
+<p>A record <em>without</em> match rows counts as settled — so records that were <em>never evaluated</em> (e.g. the robot was down while a large transfer ran) are also deleted once they are 14 days old, and will never be retried. Lengthen the interval if your batches may lag that far behind.</p>
 </div>
 <h2 id="viewing-monitorsql-ad-hoc">Viewing — <code>monitor.sql</code> (ad hoc)<a class="headerlink" href="#viewing-monitorsql-ad-hoc" title="Permanent link">&para;</a></h2>
 <p><code>monitor.sql</code> pivots the newest <code>monitoring</code> snapshots into a wide table — one row per minute, one column per metric, newest first (last 500 rows):</p>
