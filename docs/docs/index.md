@@ -40,6 +40,7 @@ flowchart TD
     subgraph cache["Metadata cache (Postgres)"]
         INGEST[("search_ingest<br/><i>transfer requests</i>")]
         RECORDS[("records<br/><i>raw records +<br/>tracking state</i>")]
+        MATCHES[("m2m_record_ods<br/><i>record ↔ reference<br/>pairs + flags</i>")]
     end
 
     subgraph robot["Bulk abstract ingest robot"]
@@ -53,7 +54,9 @@ flowchart TD
     INGEST -.->|"transfer request<br/>(SAS link)"| QUEUE
     QUEUE -->|"store raw records"| RECORDS
     RECORDS -->|"unevaluated batch"| MATCH
-    RECORDS -->|"eligible records"| ENHANCE
+    MATCH -->|"one row per matched<br/>reference"| MATCHES
+    MATCHES -->|"records to enhance<br/>(by DESTinY ID)"| ENHANCE
+    RECORDS -->|"raw payload"| ENHANCE
     %% MATCH -->|"log eligibility"| RECORDS
     MATCH -->|"lookup by configured<br/>identifier (DOI),<br/>request enhancements"| REPO
     REPO -->|"approved batches"| ENHANCE
@@ -65,7 +68,7 @@ Each runner runs its own endless loop and can be restarted at any time — all p
 ## Where to go next
 
 - [**Architecture**](architecture.md) — the three runners, how they hand work to each other, and how the design survives crashes.
-- [**Data model**](data-model.md) — the two tables (`search_ingest`, `records`) and their tracking columns.
+- [**Data model**](data-model.md) — the three tables (`search_ingest`, `records`, `m2m_record_ods`) and their tracking columns.
 - [**Enhancement rules**](matching.md) — when an abstract is considered worth submitting, including the decision tree.
 - [**Configuration**](configuration.md) — all environment variables and logging options.
 - [**Monitoring**](monitoring.md) — how progress is tracked in the database, compacted, and viewed.

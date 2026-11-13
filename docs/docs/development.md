@@ -27,6 +27,10 @@ At minimum you need `ROBOT_ID`, `ROBOT_SECRET` and the Keycloak client credentia
 
 For local development, Postgres runs as part of the Docker Compose stack. Tables are **not** created by SQL scripts — `init.sql` is a placeholder; the schema is created automatically by SQLModel (`SQLModel.metadata.create_all`) when a runner starts.
 
+<!-- prettier-ignore -->
+!!! note "There are no migrations"
+    `create_all` only creates **missing tables** — it never changes an existing one. After a schema change in `app/db/schemas.py`, either drop the volume (`docker compose down -v`) or apply the `CREATE TABLE` / `ALTER TABLE` statements by hand; the robot runs happily against a database that already matches the models.
+
 Useful commands:
 
 ```sh
@@ -84,9 +88,10 @@ INSERT INTO search_ingest (azure_link) VALUES ('https://<storage>.blob.core.wind
 
 ```sql
 SELECT ingest_id, is_queueing, is_queued, checkpoint_bytes, checkpoint_rows FROM search_ingest;
-SELECT evaluated, found_destiny_reference, abstract_enhancement_required,
-       enhancement_requested, enhancement_submitted, count(*)
-FROM records GROUP BY 1,2,3,4,5 ORDER BY 6 DESC;
+SELECT r.evaluated, m.destiny_id IS NOT NULL AS matched, m.abstract_enhancement_required,
+       m.enhancement_requested, m.enhancement_submitted, count(*)
+FROM records r LEFT JOIN m2m_record_ods m ON m.record_id = r.record_id
+GROUP BY 1,2,3,4,5 ORDER BY 6 DESC;
 ```
 
 ## Authentication against the DESTinY repository

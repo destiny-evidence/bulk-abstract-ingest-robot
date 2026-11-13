@@ -139,7 +139,7 @@ class TestTransfer:
         assert all(
             getattr(record, column) is None
             for record in db.records
-            for column in ("destiny_id", "openalex_id", "doi", "wos_id", "scopus_id", "s2_id", "pubmed_id", "dimensions_id")
+            for column in ("openalex_id", "doi", "wos_id", "scopus_id", "s2_id", "pubmed_id", "dimensions_id")
         )
         assert queue_runner.total_entries_processed == 9
         assert queue_blob.requests == [0]

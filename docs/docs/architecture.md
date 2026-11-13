@@ -45,13 +45,13 @@ sequenceDiagram
         E->>DB: load cache entries for the batch's DESTinY IDs
         E->>Blob: upload enhancements JSONL (abstract + raw)
         E->>ODS: finalise batch result
-        E->>DB: mark records as submitted
+        E->>DB: mark matches as submitted
     end
 ```
 
 ## The match → enhance handoff
 
-The match and enhance runners never share in-memory state. The match runner records `abstract_enhancement_required`, `enhancement_requested` and the `destiny_id` on each cache row; the enhance runner later re-reads the records **by DESTinY ID** when the repository hands out an approved batch. This means:
+The match and enhance runners never share in-memory state. For every reference it matched, the match runner writes a `m2m_record_ods` row (the reference's `destiny_id` plus the `abstract_enhancement_required` and `enhancement_requested` flags for that pair); the enhance runner later re-reads the cache entries **by DESTinY ID** — through that table — when the repository hands out an approved batch. This means:
 
 - the repository decides _when_ work is done (the robot only polls),
 - the robot can restart at any point without losing track of what was requested vs. submitted,

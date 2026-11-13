@@ -227,11 +227,41 @@ class TestLoopTask:
         match_runner.repository.request_to_enhance.assert_called_once_with(destiny_ids=[DESTINY_ID])  # only the eligible entry
         match_runner.store.persist_match_results.assert_awaited_once_with(
             cache_entries=[matched, stale, unmatched],
-            matched_cache_entries=[matched, stale],
+            matched_references=[(matched, matched_ref), (stale, stale_ref)],
             filtered_references=[(matched, matched_ref)],
-            requested_cache_entries=[matched],
+            requested_references=[(matched, matched_ref)],
         )
         assert match_runner.total_entries_processed == 3
+
+    def test_one_cache_entry_matched_to_several_references_requests_each_eligible_one(self, match_runner):
+        """The repository may answer one query with several (not yet merged) references, and they are judged one by one."""
+        entry, other_entry = cache_entry(), cache_entry()
+        eligible_ref, duplicate_ref = ods_reference(), ods_reference(destiny_id=OTHER_ID, abstracts=[SAME_ABSTRACT])
+        match_runner.store.get_next_request_batch.return_value = [entry, other_entry]
+        match_runner.repository.query_repository.return_value = [(entry, eligible_ref), (entry, duplicate_ref), (other_entry, eligible_ref)]
+
+        asyncio.run(match_runner._loop_task())
+
+        match_runner.repository.request_to_enhance.assert_called_once_with(destiny_ids=[DESTINY_ID])  # the duplicate blocks its other reference
+        persisted = match_runner.store.persist_match_results.await_args.kwargs
+        assert persisted["matched_references"] == [(entry, eligible_ref), (entry, duplicate_ref), (other_entry, eligible_ref)]
+        assert persisted["filtered_references"] == [(entry, eligible_ref), (other_entry, eligible_ref)]
+        assert persisted["requested_references"] == [(entry, eligible_ref), (other_entry, eligible_ref)]
+
+    def test_a_reference_without_destiny_id_is_persisted_but_never_asked_about(self, match_runner):
+        """The enhancement rules already rule out a reference we cannot name: the match is recorded, no request goes out."""
+        entry = cache_entry()
+        reference = ods_reference(destiny_id=None)
+        match_runner.store.get_next_request_batch.return_value = [entry]
+        match_runner.repository.query_repository.return_value = [(entry, reference)]
+
+        asyncio.run(match_runner._loop_task())
+
+        match_runner.repository.request_to_enhance.assert_not_called()
+        persisted = match_runner.store.persist_match_results.await_args.kwargs
+        assert persisted["matched_references"] == [(entry, reference)]  # the match itself is still worth remembering
+        assert persisted["filtered_references"] == []
+        assert persisted["requested_references"] == []
 
     def test_persists_without_requesting_when_nothing_is_eligible(self, match_runner):
         entry = cache_entry()

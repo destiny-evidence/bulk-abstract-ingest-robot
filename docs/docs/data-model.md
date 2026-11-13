@@ -1,6 +1,6 @@
 # Data model
 
-The robot owns its Postgres database and treats it as the durable work queue between runners. There are exactly two tables owned by the runners, both created automatically from the SQLModel definitions in `app/db/schemas.py` at startup (`SQLModel.metadata.create_all`). The ops scripts additionally maintain a third, plain key/value `monitoring` table (created by `scripts/tracking.sql`, see [Monitoring](monitoring.md)).
+The robot owns its Postgres database and treats it as the durable work queue between runners. There are exactly three tables owned by the runners, all created automatically from the SQLModel definitions in `app/db/schemas.py` at startup (`SQLModel.metadata.create_all`). The ops scripts additionally maintain a fourth, plain key/value `monitoring` table (created by `scripts/tracking.sql`, see [Monitoring](monitoring.md)).
 
 ## `records` — the metadata cache
 
@@ -15,8 +15,9 @@ One row per raw source record (one JSONL line from an export file). The record i
 | Column                                                                             | Notes                                                                                                      |
 | ---------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
 | `record_id`                                                                        | Internal primary key (UUIDv6, time-ordered).                                                               |
-| `destiny_id`                                                                       | DESTinY repository ID once the match runner matched the record; indexed.                                   |
 | `openalex_id`, `doi`, `wos_id`, `scopus_id`, `s2_id`, `pubmed_id`, `dimensions_id` | External identifiers (indexed). OpenAlex IDs are normalised to `W\d+`, DOIs lowercased without URL prefix. |
+
+Which DESTinY references a record matched is **not** a column here — a record can match several references, so those live in [`m2m_record_ods`](#m2m_record_ods-the-matched-references).
 
 ### Payload columns
 
@@ -28,19 +29,15 @@ One row per raw source record (one JSONL line from an export file). The record i
 
 ### Tracking columns
 
-Every flag is written by a specific step of the pipeline, which makes progress observable and lets each runner pick up exactly where it left off:
+Every flag is written by a specific step of the pipeline, which makes progress observable and lets each runner pick up exactly where it left off. These three describe the **record itself**; what the robot did about each reference it matched is tracked per match instead (see [`m2m_record_ods`](#m2m_record_ods-the-matched-references)).
 
-| Column                          | Set by                       | Meaning                                                                                                                                |
-| ------------------------------- | ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| `has_eligible_abstract`         | Match runner (batch pick-up) | `false` if the record's own abstract is too short to ever be submitted (`MIN_ABSTRACT_LENGTH`); such records are skipped from then on. |
-| `encountered_parsing_error`     | Match runner (batch pick-up) | Raw payload could not be parsed, or the parsed record failed validation. Parked until the flag is reset (see below).                   |
-| `evaluated`                     | Match runner                 | The record has been checked against the repository once.                                                                               |
-| `found_destiny_reference`       | Match runner                 | A matching reference was found in the repository (`destiny_id` filled).                                                                |
-| `abstract_enhancement_required` | Match runner                 | The [enhancement rules](matching.md) say we should submit this abstract.                                                               |
-| `enhancement_requested`         | Match runner                 | An enhancement request was successfully sent to the repository.                                                                        |
-| `enhancement_submitted`         | Enhance runner               | The enhancement was actually submitted for this record.                                                                                |
+| Column                      | Set by                       | Meaning                                                                                                                                |
+| --------------------------- | ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `has_eligible_abstract`     | Match runner (batch pick-up) | `false` if the record's own abstract is too short to ever be submitted (`MIN_ABSTRACT_LENGTH`); such records are skipped from then on. |
+| `encountered_parsing_error` | Match runner (batch pick-up) | Raw payload could not be parsed, or the parsed record failed validation. Parked until the flag is reset (see below).                   |
+| `evaluated`                 | Match runner                 | The record has been checked against the repository once.                                                                               |
 
-A record therefore walks a funnel like this (each stage is one indexed column, so every batch query is a simple "where not yet done" filter):
+A record therefore walks a funnel like this (each stage is one indexed column or one row in `m2m_record_ods`, so every batch query is a simple "where not yet done" filter):
 
 ```mermaid
 flowchart LR
@@ -50,17 +47,17 @@ flowchart LR
     PARSE -- yes --> ELIG{"has_eligible<br/>abstract?"}
     ELIG -- "no (too short)" --> DEAD["skipped"]
     ELIG -- yes --> EVAL["evaluated"]
-    EVAL -- "no match in ODS" --> NOMATCH["no destiny_id"]
-    EVAL -- matched --> FOUND["found_destiny<br/>reference"]
-    FOUND -- "rules reject" --> NOTREQ["enhancement<br/>not required"]
-    FOUND -- "rules pass" --> REQ["enhancement<br/>requested"]
+    EVAL -- "no match in ODS" --> NOMATCH["no match row"]
+    EVAL -- matched --> MATCHROW["row in<br/>m2m_record_ods"]
+    MATCHROW -- "rules reject" --> NOTREQ["enhancement<br/>not required"]
+    MATCHROW -- "rules pass" --> REQ["enhancement<br/>requested"]
     REQ --> SUB["enhancement<br/>submitted"]
 
     style DEAD fill:transparent
     style PARKED fill:#f6e7d7,stroke:#c58b4b
 ```
 
-All flags from the match stage are persisted in a **single transaction** per batch, so an interrupted run never leaves a half-updated batch behind.
+Everything the match stage learns — the record's `evaluated` flag, the new match rows and their flags — is persisted in a **single transaction** per batch, so an interrupted run never leaves a half-updated batch behind.
 
 <!-- prettier-ignore -->
 !!! note "A parked record is not evaluated"
@@ -79,6 +76,49 @@ UPDATE records SET encountered_parsing_error = false WHERE encountered_parsing_e
 ```
 
 No restart is strictly needed — the runner re-reads the table every `MATCH_INTERVAL_SECONDS`, so clearing the flag is enough for the next loop to pick the records up. Restart the match runner when the parser itself changed, of course.
+
+## `m2m_record_ods` — the matched references
+
+One row per record/reference pair the match runner found. Both directions are genuinely many-to-many: one lookup (say a DOI) can hit several references the repository has not merged yet, and several cached rows from different exports can point at the same reference. The reference itself is not copied here — only its ID, so the pairing survives restarts without duplicating repository data.
+
+The **existence of a row is the statement that a reference was found**; there is no separate "we found something" flag on `records`.
+
+```mermaid
+erDiagram
+    records ||--o{ m2m_record_ods : "matched to"
+    ODS_REFERENCE ||--o{ m2m_record_ods : "is matched by"
+
+    records {
+        uuid record_id PK "cached raw record"
+    }
+    ODS_REFERENCE {
+        uuid destiny_id PK "in the repository, not in this database"
+    }
+    m2m_record_ods {
+        uuid record_id PK "foreign key to records"
+        uuid destiny_id PK "indexed"
+        bool abstract_enhancement_required
+        bool enhancement_requested
+        bool enhancement_submitted
+    }
+```
+
+| Column                          | Set by         | Meaning                                                                                                             |
+| ------------------------------- | -------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `record_id`                     | Match runner   | First half of the composite primary key; foreign key to `records` with `ON DELETE CASCADE`.                         |
+| `destiny_id`                    | Match runner   | Second half of the primary key; the reference's ID in the repository (indexed — the enhance runner looks up by it). |
+| `abstract_enhancement_required` | Match runner   | The [enhancement rules](matching.md) say we should submit this record's abstract for this reference.                |
+| `enhancement_requested`         | Match runner   | An enhancement request was successfully sent to the repository for this reference.                                  |
+| `enhancement_submitted`         | Enhance runner | The enhancement actually reached the repository for this reference.                                                 |
+
+<!-- prettier-ignore -->
+!!! note "Why the flags are not on `records`"
+    Whether an enhancement is wanted, requested or submitted is a property of the _pair_: the rules compare one record's abstract against one reference's abstract, the repository grants enhancement per reference, and a record matched to two references may need to enhance only one of them. Keeping the flags on the match row is what makes "we already asked about this reference" observable even when the same record matched several of them.
+
+Two consequences for the runners:
+
+- **Re-evaluating a record does not duplicate matches.** `persist_match_results` inserts only the pairs it does not already know, so a record that is picked up again after a parser fix keeps its history (and its already-requested references).
+- **The enhance runner serves one record per reference.** When the repository hands out an approved batch of DESTinY IDs, the store joins this table and picks a single cached row per ID — several rows claiming the same reference only need one enhancement.
 
 ## `search_ingest` — transfer requests
 

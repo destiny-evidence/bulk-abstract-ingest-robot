@@ -40,8 +40,18 @@ WHERE ctid IN (
 );
 
 -- Delete records that are older and already submitted or will never be submitted
+-- (a record is worth keeping while one of its matches still awaits an enhancement)
 DELETE
-FROM records
-WHERE (enhancement_submitted = TRUE OR abstract_enhancement_required = FALSE)
-  AND encountered_parsing_error <> TRUE
-  AND created_at < NOW() - INTERVAL '14 days';
+FROM records AS r
+WHERE r.created_at < NOW() - INTERVAL '14 days'
+  AND r.encountered_parsing_error <> TRUE
+  AND NOT EXISTS (SELECT 1
+                  FROM m2m_record_ods AS m
+                  WHERE m.record_id = r.record_id
+                    AND m.abstract_enhancement_required = TRUE
+                    AND m.enhancement_submitted <> TRUE);
+
+-- Drop matches of deleted records (the foreign key cascades, this also cleans up rows from before it existed)
+DELETE
+FROM m2m_record_ods
+WHERE record_id NOT IN (SELECT record_id FROM records);

@@ -80,10 +80,8 @@ class MatchRunner(Runner):
             self.loop_logger.info("No unprocessed cache entries found.")
             return
 
-        # Query repository for reference entries
+        # Query repository for reference entries (one cache entry can match several references, and vice versa)
         matched_destiny_references = await self.repository.query_repository(cache_entries=cache_entries)
-
-        matched_cache_entries = [cache_entry for cache_entry, _reference in matched_destiny_references]
 
         # Filter results
         filtered_references = [
@@ -92,19 +90,18 @@ class MatchRunner(Runner):
             if self.should_enhance(cache_entry=cache_entry, reference=reference)
         ]
 
-        # Request to enhance references
-        if destiny_ids := [reference.destiny_id for _cache_entry, reference in filtered_references if reference.destiny_id is not None]:
+        # Request to enhance references (several cache entries can point at the same reference, so ask about each one only once)
+        requested_references = [(cache_entry, reference) for cache_entry, reference in filtered_references if reference.destiny_id is not None]
+        if destiny_ids := list(dict.fromkeys(reference.destiny_id for _cache_entry, reference in requested_references if reference.destiny_id is not None)):
             self.repository.request_to_enhance(
                 destiny_ids=destiny_ids,
             )
 
-        requested_cache_entries = [submittable_cache_entry for submittable_cache_entry, reference in filtered_references if reference.destiny_id is not None]
-
         await self.store.persist_match_results(
             cache_entries=cache_entries,
-            matched_cache_entries=matched_cache_entries,
+            matched_references=matched_destiny_references,
             filtered_references=filtered_references,
-            requested_cache_entries=requested_cache_entries,
+            requested_references=requested_references,
         )
 
         self.total_entries_processed += len(cache_entries)

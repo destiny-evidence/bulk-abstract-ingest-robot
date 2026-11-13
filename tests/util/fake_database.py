@@ -1,11 +1,13 @@
 """
-Mock database for the store — the `records` table from docs/docs/data-model.md.
+Mock database for the store — the `records` and `m2m_record_ods` tables from docs/docs/data-model.md.
 
-`MockDatabase` holds plain `Record` rows (seedable at any stage of the submission flowchart)
-and lets tests schedule a crash on the next read or write to simulate the process or the
-database connection dying mid-flow. `MockStore` mirrors the parts of `app.db.store.AbstractStore`
-that the runners use — including the `DISTINCT ON (destiny_id)` deduplication and the
-`ensure_overlap` guard — so tests can track the flow's tracking flags without a live Postgres.
+`MockDatabase` holds plain `Record` rows (seedable at any stage of the submission flowchart) plus the
+`RecordMatch` rows linking them to DESTinY references, and lets tests schedule a crash on the next read or
+write to simulate the process or the database connection dying mid-flow. `MockStore` mirrors the parts of
+`app.db.store.AbstractStore` that the runners use — including the "one record per DESTinY ID" pick and the
+`ensure_overlap` guard — so tests can track the flow's tracking flags without a live Postgres. Because the
+per-reference flags live on the match row, `db.add_record(destiny_id=...)` also creates the match, and the
+`match_of` helper reads the flags back.
 
 `MockIngestTracker` mirrors the `IngestTracker` state machine from `app/db/ingest.py` without
 Postgres or file locks: handing out a request marks it `is_queueing`, checkpoints are only
@@ -31,16 +33,17 @@ from uuid import UUID, uuid6
 from sqlalchemy.exc import OperationalError
 
 from app.db.engine import Persist
-from app.db.schemas import Format, ParsedRecord, ParsedRecordExtra, Record, SearchIngest
+from app.db.schemas import Format, ParsedRecord, ParsedRecordExtra, Record, RecordMatch, SearchIngest
 
 from .fake_data import DEFAULT_ABSTRACT, DEFAULT_TITLE, NEW_ABSTRACT
 
 
 class MockDatabase:
-    """Stand-in for the Postgres `records` table."""
+    """Stand-in for the Postgres `records` and `m2m_record_ods` tables."""
 
     def __init__(self, *, crash_on_commit: int | None = None, commit_error: Exception | None = None) -> None:
         self.records: list[Record] = []
+        self.matches: list[RecordMatch] = []
         self.commits = 0
         # Exceptions to raise (once) from the next store read/write, simulating a mid-flow crash
         self.crash_on_next_read: Exception | None = None
@@ -49,14 +52,43 @@ class MockDatabase:
         self.commit_error = commit_error or connection_died()
         self.sessions: list[MockSession] = []
 
-    def add_record(self, *, abstract: str | None = DEFAULT_ABSTRACT, title: str = DEFAULT_TITLE, publication_year: int = 2020, **flags: object) -> Record:
-        """Insert a `scopus_api` record; keyword arguments set the identifier and tracking columns."""
+    def add_record(
+        self,
+        *,
+        abstract: str | None = DEFAULT_ABSTRACT,
+        title: str = DEFAULT_TITLE,
+        publication_year: int = 2020,
+        destiny_id: UUID | None = None,
+        **flags: object,
+    ) -> Record:
+        """
+        Insert a `scopus_api` record; keyword arguments set the identifier and tracking columns.
+
+        A `destiny_id` also writes the `m2m_record_ods` row that links the record to that reference, which is
+        where the per-reference flags (`abstract_enhancement_required` and friends) are kept.
+        """
         raw: dict[str, Any] = {"dc:title": title, "prism:coverDate": f"{publication_year}-06-01"}
         if abstract is not None:
             raw["dc:description"] = abstract
-        record = Record(format=Format.SCOPUS_API, raw=raw, **flags)
+        record_flags = {flag: value for flag, value in flags.items() if flag in Record.model_fields}
+        match_flags = {flag: value for flag, value in flags.items() if flag in RecordMatch.model_fields}
+        record = Record(format=Format.SCOPUS_API, raw=raw, **record_flags)
         self.records.append(record)
+        if destiny_id is not None:
+            self.add_match(record, destiny_id=destiny_id, **match_flags)
         return record
+
+    def add_match(self, record: Record, *, destiny_id: UUID, **flags: object) -> RecordMatch:
+        """Record that this cached record matched one DESTinY reference (many records to many references)."""
+        match = RecordMatch(record_id=record.record_id, destiny_id=destiny_id, **flags)
+        self.matches.append(match)
+        return match
+
+    def match_of(self, record: Record) -> RecordMatch | None:
+        """The match row of a record (asserting there is exactly one), for reading back the per-reference flags."""
+        matches = [match for match in self.matches if match.record_id == record.record_id]
+        assert len(matches) <= 1, f"Record {record.record_id} has {len(matches)} matches, use `db.matches` to inspect them"
+        return matches[0] if matches else None
 
     def consume_crash(self, kind: str) -> Exception | None:
         """Pop a scheduled crash for a "read" or "write" (one-shot, like a real transient failure)."""
@@ -91,35 +123,35 @@ class MockStore:
         if (crash := self.db.consume_crash("read")) is not None:
             raise crash
 
-        found: dict[UUID, Record] = {}  # DISTINCT ON (destiny_id): one row per DESTinY ID, first one wins
-        for record in self.db.records:
-            if record.destiny_id is not None and record.destiny_id in destiny_ids:
-                found.setdefault(record.destiny_id, record)
+        by_id = {record.record_id: record for record in self.db.records}
+        found: dict[UUID, tuple[Record, UUID]] = {}  # one record per DESTinY ID, the first match wins
+        for match in self.db.matches:
+            if match.destiny_id in destiny_ids and match.record_id in by_id:
+                found.setdefault(match.destiny_id, (by_id[match.record_id], match.destiny_id))
 
-        if ensure_overlap and {record.destiny_id for record in found.values()} != set(destiny_ids):
+        if ensure_overlap and set(found) != set(destiny_ids):
             raise RuntimeError("Did not find submittable record for all requested IDs!")
-        return [ParsedRecordExtra.from_record(record) for record in found.values()]
+        return [ParsedRecordExtra.from_record(record=record, destiny_id=destiny_id) for record, destiny_id in found.values()]
 
     async def log_submission(self, cache_entries: Sequence[ParsedRecord]) -> None:
-        """Log submission to repository by setting the `enhancement_submitted` flag on the matching rows."""
+        """Log submission to repository by setting `enhancement_submitted` on the matching record/reference pairs."""
         self.calls.append("log_submission")
         if (crash := self.db.consume_crash("write")) is not None:
             raise crash
 
-        submitted = {entry.record_id for entry in cache_entries if entry.record_id is not None}
-        for record in self.db.records:
-            if record.record_id in submitted:
-                record.enhancement_submitted = True
+        submitted = {(entry.record_id, entry.destiny_id) for entry in cache_entries if entry.record_id is not None and entry.destiny_id is not None}
+        for match in self.db.matches:
+            if (match.record_id, match.destiny_id) in submitted:
+                match.enhancement_submitted = True
 
 
-def requested_record(db: MockDatabase, **overrides) -> Record:
+def requested_record(db: MockDatabase, *, destiny_id: UUID | None = None, **overrides) -> Record:
     """Seed a record at the `enhancement_requested` stage — the flowchart state the enhance runner expects."""
     return db.add_record(
         **{
-            "destiny_id": uuid6(),
+            "destiny_id": destiny_id if destiny_id is not None else uuid6(),
             "abstract": NEW_ABSTRACT,
             "evaluated": True,
-            "found_destiny_reference": True,
             "abstract_enhancement_required": True,
             "enhancement_requested": True,
             **overrides,
@@ -129,7 +161,7 @@ def requested_record(db: MockDatabase, **overrides) -> Record:
 
 def connection_died() -> OperationalError:
     """Lost database connection, as SQLAlchemy surfaces it."""
-    return OperationalError("SELECT records.destiny_id FROM records", {}, ConnectionResetError(104, "Connection reset by peer"))
+    return OperationalError("SELECT m2m_record_ods.destiny_id FROM m2m_record_ods", {}, ConnectionResetError(104, "Connection reset by peer"))
 
 
 class MockIngestTracker:

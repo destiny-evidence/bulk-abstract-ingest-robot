@@ -6,7 +6,7 @@ from typing import Annotated, Any
 from uuid import UUID, uuid6
 
 from pydantic import StringConstraints
-from sqlalchemy import Column, DateTime, text
+from sqlalchemy import Column, DateTime, ForeignKeyConstraint, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlmodel import Field, SQLModel
 from sqlmodel.main import SQLModelConfig  # type: ignore[attr-defined]
@@ -36,7 +36,6 @@ DOI = Annotated[str, StringConstraints(pattern=r"^10\.\d{4,9}/[-._;()/#:A-Za-z0-
 
 class RecordIdentifiers(SQLModel):
     record_id: UUID = Field(default_factory=uuid6, primary_key=True, description="Internal identifier")
-    destiny_id: UUID | None = Field(default=None, index=True, description="ID in ODS if available and matched successfully")
 
     openalex_id: OpenAlexID | None = Field(default=None, index=True)  # Must be W123456789 format
     doi: DOI | None = Field(default=None, index=True)  # Expecting no URL prefixes, starting with 10.*
@@ -49,6 +48,8 @@ class RecordIdentifiers(SQLModel):
 
 
 class _TrackingMixin(SQLModel):
+    """What the robot did about a cached record itself — one set of flags per row of the `records` table."""
+
     created_at: datetime = Field(
         default_factory=datetime.now,
         sa_column=Column(
@@ -60,10 +61,6 @@ class _TrackingMixin(SQLModel):
 
     has_eligible_abstract: bool | None = Field(default=None, index=True, description="Set to false if record failed eligibility rule (i.e. abstract too short)")
     evaluated: bool = Field(default=False, index=True, description="Set to true if record was evaluated against ODS")
-    found_destiny_reference: bool = Field(default=False, index=True, description="Set to true if we found a matching reference in ODS for this record")
-    abstract_enhancement_required: bool = Field(default=False, index=True, description="Set to true if ODS requires an abstract enhancement from this record")
-    enhancement_requested: bool = Field(default=False, index=True, description="Set to true if enhancement request was sent to ODS")
-    enhancement_submitted: bool = Field(default=False, index=True, description="Set to true if enhancement was submitted to ODS")
     encountered_parsing_error: bool = Field(default=False, index=True, description="Set to true if any of the processing of the raw data failed")
 
 
@@ -94,8 +91,30 @@ class Record(RecordIdentifiers, _RawMixin, _TrackingMixin, table=True):
     model_config = SQLModelConfig(validate_default=True, extra="ignore")
 
 
+class RecordMatch(SQLModel, table=True):
+    """
+    Link between a cached record and one DESTinY reference it matched.
+
+    The relation is many-to-many: the repository can hold several (unmerged) references for the identifier we query,
+    so one record may match several references, and several records may match the same reference.
+    A row is only ever written for a reference that was actually found, so the row itself is the record of that match.
+    """
+
+    __tablename__ = "m2m_record_ods"
+    __table_args__ = (ForeignKeyConstraint(("record_id",), ("records.record_id",), ondelete="CASCADE"),)
+
+    record_id: UUID = Field(primary_key=True, description="Cached record that matched the reference")
+    destiny_id: UUID = Field(primary_key=True, index=True, description="ID in ODS of the matched reference")
+
+    abstract_enhancement_required: bool = Field(default=False, index=True, description="Set to true if ODS requires an abstract enhancement from this match")
+    enhancement_requested: bool = Field(default=False, index=True, description="Set to true if enhancement request was sent to ODS")
+    enhancement_submitted: bool = Field(default=False, index=True, description="Set to true if enhancement was submitted to ODS")
+
+
 class ParsedRecord(RecordIdentifiers, _BiblioMixin, _TrackingMixin):
     model_config = SQLModelConfig(validate_default=True, extra="ignore")
+
+    destiny_id: UUID | None = Field(default=None, description="ID in ODS if available and matched successfully")
 
     @classmethod
     def _parse_record_kwargs(cls, record: Record) -> dict[str, Any]:
@@ -133,9 +152,10 @@ class ParsedRecord(RecordIdentifiers, _BiblioMixin, _TrackingMixin):
         raise NotImplementedError(f"No parser for format {record.format}")
 
     @classmethod
-    def from_record(cls, record: Record) -> ParsedRecord:
+    def from_record(cls, record: Record, destiny_id: UUID | None = None) -> ParsedRecord:
+        """Parse a queued record, optionally for one specific DESTinY reference it was matched to."""
         kwargs = cls._parse_record_kwargs(record)
-        return cls(**kwargs)
+        return cls(destiny_id=destiny_id, **kwargs)
 
 
 class ParsedRecordExtra(ParsedRecord, _RawMixin):
@@ -144,9 +164,11 @@ class ParsedRecordExtra(ParsedRecord, _RawMixin):
     model_config = SQLModelConfig(validate_default=True, extra="ignore")
 
     @classmethod
-    def from_record(cls, record: Record) -> ParsedRecordExtra:
+    def from_record(cls, record: Record, destiny_id: UUID | None = None) -> ParsedRecordExtra:
+        """Parse a queued record (with its raw payload), optionally for one specific DESTinY reference it was matched to."""
         kwargs = cls._parse_record_kwargs(record)
         return cls(
+            destiny_id=destiny_id,
             **kwargs,
             format=record.format,
             raw=record.raw,
@@ -155,6 +177,8 @@ class ParsedRecordExtra(ParsedRecord, _RawMixin):
 
 class ODSRecord(RecordIdentifiers, _MultiBiblioMixin, _TrackingMixin):
     model_config = SQLModelConfig(validate_default=True, extra="ignore")
+
+    destiny_id: UUID | None = Field(default=None, description="ID in ODS if available and matched successfully")
 
 
 class SearchIngest(SQLModel, table=True):
@@ -195,6 +219,7 @@ __all__ = [
     "ParsedRecordExtra",
     "Record",
     "RecordIdentifiers",
+    "RecordMatch",
     "SearchIngest",
     "Source",
 ]

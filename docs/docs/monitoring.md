@@ -5,7 +5,7 @@ The robot reports through its database — there is no metrics server and nothin
 ```mermaid
 flowchart LR
     subgraph cache["Postgres cache"]
-        DATA[("records ·<br/>search_ingest")]
+        DATA[("records ·<br/>m2m_record_ods ·<br/>search_ingest")]
         MON[("monitoring<br/><i>timestamp · key ·<br/>value · type</i>")]
     end
     TRACK["scripts/tracking.sql<br/><i>sql-cron: every minute</i>"]
@@ -35,18 +35,25 @@ Currently tracked metrics:
 | `ingest_entries_finished`             | transfers completed (`is_queued`)                                       |
 | `ingest_entries_progress:<ingest_id>` | final size (`checkpoint_rows`) of one transfer — one series per request |
 
-**Record funnel** (counted over `records`, one metric per tracking flag — see [Data model → Tracking columns](data-model.md#tracking-columns)):
+**Record funnel** (counted over `records` — see [Data model → Tracking columns](data-model.md#tracking-columns)):
 
-| Metric                                  | Counts                                                    |
-| --------------------------------------- | --------------------------------------------------------- |
-| `records_total`                         | rows in the cache                                         |
-| `records_has_eligible_abstract`         | rows whose abstract passed the length pre-filter          |
-| `records_evaluated`                     | rows checked against the repository                       |
-| `records_found_destiny_reference`       | rows matched to a DESTinY reference                       |
-| `records_abstract_enhancement_required` | rows the [enhancement rules](matching.md) accepted        |
-| `records_enhancement_requested`         | rows an enhancement request was sent for                  |
-| `records_enhancement_submitted`         | rows whose enhancement actually reached the repository    |
-| `records_encountered_parsing_error`     | rows parked because their raw payload could not be parsed |
+| Metric                              | Counts                                                    |
+| ----------------------------------- | --------------------------------------------------------- |
+| `records_total`                     | rows in the cache                                         |
+| `records_has_eligible_abstract`     | rows whose abstract passed the length pre-filter          |
+| `records_evaluated`                 | rows checked against the repository                       |
+| `records_encountered_parsing_error` | rows parked because their raw payload could not be parsed |
+
+**Match funnel** (counted over `m2m_record_ods`, one row per record/reference pair — see [Data model → `m2m_record_ods`](data-model.md#m2m_record_ods-the-matched-references)):
+
+| Metric                                  | Counts                                                  |
+| --------------------------------------- | ------------------------------------------------------- |
+| `matches_total`                         | references the cached records were matched to           |
+| `matches_abstract_enhancement_required` | pairs the [enhancement rules](matching.md) accepted     |
+| `matches_enhancement_requested`         | pairs an enhancement request was sent for               |
+| `matches_enhancement_submitted`         | pairs whose enhancement actually reached the repository |
+
+Because one record can match several references, the match counters intentionally run ahead of the record counters: `matches_total / records_evaluated` is roughly how many repository hits an average record gets.
 
 <!-- prettier-ignore -->
 !!! tip "Reading the parsing-error counter"
@@ -60,11 +67,11 @@ Three housekeeping passes in one script:
 
 1. **Aggregate aged-out metrics.** Raw (`orig`) rows older than seven days are collapsed into one daily `min` / `avg` / `max` row per metric key, and the raw rows are dropped.
 2. **Cap the table size.** Only the 10,000 most recent `monitoring` rows survive each run.
-3. **Purge cache rows that no longer matter.** Submitted or permanently ineligible records older than 14 days are deleted from `records`, so the cache does not grow forever while the raw source data stays in (cold) blob storage anyway and can be re-ingested via a new `search_ingest` row.
+3. **Purge cache rows that no longer matter.** Records older than 14 days that are not parked and have no match still awaiting its enhancement (required and not yet submitted) are deleted from `records`; their `m2m_record_ods` rows follow via `ON DELETE CASCADE`. The cache therefore does not grow forever while the raw source data stays in (cold) blob storage anyway and can be re-ingested via a new `search_ingest` row.
 
 <!-- prettier-ignore -->
 !!! warning "The purge can outrun the match runner"
-    `abstract_enhancement_required` defaults to `false` — so records that were _never evaluated_ (e.g. the robot was down while a large transfer ran) are also deleted once they are 14 days old, and will never be retried. Lengthen the interval if your batches may lag that far behind.
+    A record _without_ match rows counts as settled — so records that were _never evaluated_ (e.g. the robot was down while a large transfer ran) are also deleted once they are 14 days old, and will never be retried. Lengthen the interval if your batches may lag that far behind.
 
 ## Viewing — `monitor.sql` (ad hoc)
 

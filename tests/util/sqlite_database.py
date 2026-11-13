@@ -11,7 +11,8 @@ SQLite file instead of a live Postgres:
 - `NullPool` hands out a fresh connection per session, so a test may call `asyncio.run`
   repeatedly without the pool ever carrying one event loop's connection into the next;
 - `seed` and `fetch_rows` insert and read back `records` rows within the test's own flow,
-  next to the store calls whose effects they assert on.
+  next to the store calls whose effects they assert on (`fetch_matches` reads back the
+  `m2m_record_ods` rows the store created for them).
 """
 
 import logging
@@ -25,7 +26,7 @@ from sqlalchemy.pool import NullPool
 from sqlmodel import SQLModel, select
 
 from app.db.engine import ExtendedAsyncSession
-from app.db.schemas import Record
+from app.db.schemas import Record, RecordMatch
 from app.db.store import AbstractStore
 from app.util.config import Settings
 
@@ -67,5 +68,13 @@ async def fetch_rows(store: AbstractStore) -> list[Record]:
     """Read back all `records` rows (detached) in seed order, to inspect the verdicts the store committed."""
     async with store.db.session() as session:
         rows = (await session.exec(select(Record))).all()
+        session.expunge_all()
+        return list(rows)
+
+
+async def fetch_matches(store: AbstractStore) -> list[RecordMatch]:
+    """Read back all `m2m_record_ods` rows (detached), to inspect the matches the store committed."""
+    async with store.db.session() as session:
+        rows = (await session.exec(select(RecordMatch))).all()
         session.expunge_all()
         return list(rows)
