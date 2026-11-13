@@ -20,6 +20,7 @@ from tests.util.fake_data import (
     OTHER_ID,
     SAME_ABSTRACT,
     TITLE,
+    abstract_with_extra_letters,
     abstract_with_raw_length,
     abstracts_for,
     cache_entry,
@@ -113,8 +114,7 @@ class TestAbstractMatching:
         [
             ("none", True, True),  # the repository has no abstract yet, submitting is the whole point
             ("exact", False, False),  # an identical abstract is already in the repository
-            ("near", False, False),  # distance == max_abstract_slop, still considered a duplicate
-            ("far", True, False),  # distance == max_abstract_slop + 1: new text when compared, but any repository abstract will do when not
+            ("holds_more_than_ours", True, False),  # it carries our abstract plus a slop beyond: a length gap counts as a difference either way
             ("unrelated", True, False),  # whether the repository abstract says something else only matters when the texts are compared
             ("too_short", True, True),  # repository abstracts at or below min_abstract_length are ignored
             ("just_below_max_length", False, False),  # long, but still short enough to be trusted
@@ -122,9 +122,8 @@ class TestAbstractMatching:
             ("overlong", True, True),  # ... so even the very same text we are about to submit stops blocking once it is over the threshold
             ("multi_all_unrelated", True, False),
             ("multi_exact_among_unrelated", False, False),
-            ("multi_near_among_unrelated", False, False),
-            ("multi_all_beyond_threshold", True, False),
-            ("multi_all_three_thresholds", False, False),  # a single similar repository abstract blocks submission
+            ("multi_holds_more_among_unrelated", True, False),
+            ("multi_duplicate_among_beyond_threshold", False, False),  # a single good enough repository abstract blocks submission
         ],
     )
     @pytest.mark.parametrize("use_slop", [True, False], ids=["compared", "presence only"])
@@ -168,6 +167,30 @@ class TestAbstractMatching:
             match_runner.should_enhance(cache_entry(abstract=NEW_ABSTRACT.upper().replace(" ", ",  ") + "?? + 2026"), ods_reference(abstracts=[SAME_ABSTRACT]))
             is False
         )
+
+    def test_a_repository_abstract_short_of_our_text_does_not_block_it(self, match_runner, settings):
+        """The repository copy stops where our text keeps going: within the slop that is noise, one character further it reads as truncated and we offer ours."""
+        settings.replace_abstracts_on_mismatch = True
+        repository_copy = ods_reference(abstracts=[SAME_ABSTRACT])
+
+        assert match_runner.should_enhance(cache_entry(abstract=abstract_with_extra_letters(settings.max_abstract_slop)), repository_copy) is False
+        assert match_runner.should_enhance(cache_entry(abstract=abstract_with_extra_letters(settings.max_abstract_slop + 1)), repository_copy) is True
+
+    def test_a_length_gap_makes_the_abstracts_differ_whichever_side_it_is_on(self, match_runner, settings):
+        """The same `max_abstract_slop` + 1 characters, on either side of the comparison: either copy may be the truncated one, so both count as a different abstract."""
+        settings.replace_abstracts_on_mismatch = True
+        longer, shorter = abstract_with_extra_letters(settings.max_abstract_slop + 1), NEW_ABSTRACT
+
+        # the repository stops short of our text
+        assert match_runner.should_enhance(cache_entry(abstract=longer), ods_reference(abstracts=[shorter])) is True
+        # the same gap on our side reads the same way
+        assert match_runner.should_enhance(cache_entry(abstract=shorter), ods_reference(abstracts=[longer])) is True
+
+    def test_repository_abstract_holding_far_more_than_ours_counts_as_different(self, match_runner, settings):
+        """A repository abstract carrying our text and several slops on top is treated as another abstract, not as a better one."""
+        settings.replace_abstracts_on_mismatch = True
+
+        assert match_runner.should_enhance(cache_entry(), ods_reference(abstracts=[abstract_with_extra_letters(settings.max_abstract_slop * 3)])) is True
 
     def test_the_check_mode_decides_a_different_repository_abstract(self, match_runner, settings):
         """

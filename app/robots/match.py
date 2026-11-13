@@ -56,7 +56,11 @@ class MatchRunner(Runner):
                         # Mode 1) Existing abstract is "good enough" -> don't enhance
                         not self.settings.replace_abstracts_on_mismatch
                         # Mode 2) Abstracts are similar (with slop) -> don't enhance
-                        or (self.settings.max_abstract_slop + len(cached_abstract) >= len(list(difflib.ndiff(cached_abstract, ALPH.sub("", abstract.lower())))))
+                        or (
+                            len(list(difflib.ndiff(cached_abstract, clean_reference_abstract := ALPH.sub("", abstract.lower()))))
+                            - min(len(cached_abstract), len(clean_reference_abstract))
+                            <= self.settings.max_abstract_slop
+                        )
                     )
                     for abstract in reference.abstracts
                 ),

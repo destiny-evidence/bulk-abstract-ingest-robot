@@ -2,7 +2,7 @@
 Realistic sample data and generators shared across the runner tests.
 
 Texts are sized and shaped to exercise the matching thresholds in `app/robots/match.py`:
-`title_with_distance` and `abstract_with_distance` control the exact edit distance from
+`title_with_distance` and `abstract_with_extra_letters` control the exact edit distance from
 `TITLE`/`NEW_ABSTRACT`, `abstract_with_raw_length` controls the raw length the abstract
 length thresholds are measured on, and the `*_for` helpers build reference value lists
 around those thresholds.
@@ -139,11 +139,6 @@ def titles_for(kind: str, slop: int) -> list[str] | None:
     }[kind]
 
 
-def abstract_with_distance(distance: int) -> str:
-    """NEW_ABSTRACT extended with `distance` extra letters via trailing words (each letter adds exactly 1 to the abstract edit distance)."""
-    return NEW_ABSTRACT + ";" + words_with_letters(distance)
-
-
 def abstract_with_raw_length(raw_length: int, base: str = NEW_ABSTRACT) -> str:
     """
     `base` padded to exactly `raw_length` raw characters of digits (digits are stripped before comparison,
@@ -152,17 +147,26 @@ def abstract_with_raw_length(raw_length: int, base: str = NEW_ABSTRACT) -> str:
     return base + ("0123456789" * raw_length)[: max(0, raw_length - len(base))]
 
 
+def abstract_with_extra_letters(count: int) -> str:
+    """
+    `NEW_ABSTRACT` extended with exactly `count` extra letters via trailing words (each adds exactly 1 to the abstract distance).
+
+    Which side of the comparison it is used on tells the truncation story: on our side, the repository copy is the one that
+    stops `count` letters early; on the repository side, it holds our whole abstract and `count` letters more than we do.
+    """
+    return NEW_ABSTRACT + ";" + words_with_letters(count)
+
+
 def abstracts_for(kind: str, slop: int, max_length: int) -> list[str] | None:
     """
-    Reference abstract lists around the thresholds (considered duplicates up to and including distance `slop`,
-    and no longer trustworthy from `max_length` raw characters upwards, on either side of the comparison).
+    Reference abstract lists around the thresholds, all compared against the plain `NEW_ABSTRACT` the default cache entry carries
+    (a repository abstract within `slop` normalised characters of it still counts as a duplicate, and one is no longer
+    trustworthy from `max_length` raw characters upwards).
     """
-    near, far, far_away = abstract_with_distance(slop), abstract_with_distance(slop + 1), abstract_with_distance(slop + 5)
     return {
         "none": None,
         "exact": [SAME_ABSTRACT],
-        "near": [near],
-        "far": [far],
+        "holds_more_than_ours": [abstract_with_extra_letters(slop + 1)],
         "unrelated": [UNRELATED_ABSTRACTS[0]],
         "too_short": ["Abstract not available. (2019)?"],
         "just_below_max_length": [abstract_with_raw_length(max_length - 1)],
@@ -170,9 +174,8 @@ def abstracts_for(kind: str, slop: int, max_length: int) -> list[str] | None:
         "overlong": [abstract_with_raw_length(max_length + 1)],
         "multi_all_unrelated": UNRELATED_ABSTRACTS,
         "multi_exact_among_unrelated": [UNRELATED_ABSTRACTS[0], SAME_ABSTRACT, UNRELATED_ABSTRACTS[1]],
-        "multi_near_among_unrelated": [UNRELATED_ABSTRACTS[0], near],
-        "multi_all_beyond_threshold": [*UNRELATED_ABSTRACTS, far, far_away],
-        "multi_all_three_thresholds": [far, UNRELATED_ABSTRACTS[1], near],
+        "multi_holds_more_among_unrelated": [UNRELATED_ABSTRACTS[0], abstract_with_extra_letters(slop + 1)],
+        "multi_duplicate_among_beyond_threshold": [UNRELATED_ABSTRACTS[0], abstract_with_extra_letters(slop + 1), SAME_ABSTRACT],
     }[kind]
 
 
