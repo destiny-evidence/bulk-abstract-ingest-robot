@@ -115,13 +115,22 @@ class Repository:
         Get DESTinY references for the given PIK works, matching by ID (defined in `settings.match_identifier`).
 
         The API call passes IDs via URL which is the limiting factor on batch size.
+
+        Multiplicity goes both ways: several cache entries can share one identifier, and one cache entry can match
+        several references, so the result holds one pair per (record, reference) - which is exactly one row per pair
+        in the match table later on.
         """
         try:
             id_field, Identifier = ID_FIELDS[self.settings.match_identifier]  # noqa: N806
         except KeyError as err:
             raise NotImplementedError(f"Matching on `{self.settings.match_identifier}` not implemented.") from err
 
-        entries = {getattr(entry, id_field): entry for entry in cache_entries if getattr(entry, id_field) is not None}
+        # Several cached records can carry the same identifier (the same DOI in two exports, or duplicated rows in one),
+        # so this maps an identifier onto *every* entry holding it - an entry dropped here would never be matched again.
+        entries: dict[str, list[ParsedRecord]] = {}
+        for entry in cache_entries:
+            if (identifier := getattr(entry, id_field)) is not None:
+                entries.setdefault(identifier, []).append(entry)
 
         query: list[str | IdentifierLookup] = [
             IdentifierLookup.from_identifier(
@@ -145,16 +154,20 @@ class Repository:
         batch_results = await asyncio.gather(*(lookup_batch(batch) for batch in query_batches))
         references = [reference for batch in batch_results for reference in batch]
 
-        matched_references = []
+        matched_references: list[tuple[ParsedRecord, ODSRecord]] = []
         for reference in references:
             flat_reference = flatten_reference(reference)
-            if getattr(flat_reference, id_field) is not None and getattr(flat_reference, id_field) in entries:
-                matched_references.append((entries[getattr(flat_reference, id_field)], flat_reference))
+            identifier = getattr(flat_reference, id_field)
+            if identifier is not None:
+                # Hand the reference to every record that carries its identifier, so no duplicate record is left behind.
+                matched_references.extend((entry, flat_reference) for entry in entries.get(identifier, []))
 
+        queried_entries = sum(len(entry_list) for entry_list in entries.values())
         self.logger.debug(
-            f"Queried for {len(entries):,} `{id_field}`s in {len(query_batches):,} lookup requests "
+            f"Queried for {len(entries):,} distinct `{id_field}`s covering {queried_entries:,} cache entries "
+            f"in {len(query_batches):,} lookup requests "
             f"(batch size <= {batch_size}, concurrency {self.settings.repository_lookup_concurrency}); "
-            f"received {len(references):,} references of which {len(matched_references):,} matched",
+            f"received {len(references):,} references of which {len(matched_references):,} record/reference pairs matched",
         )
 
         return matched_references

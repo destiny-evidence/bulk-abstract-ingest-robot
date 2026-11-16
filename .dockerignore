@@ -7,5 +7,4 @@
 !run_robot.py
 !app
 !app/**
-!.config
-!.config/**
+!.config/.env.example
