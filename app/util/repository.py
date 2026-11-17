@@ -5,7 +5,6 @@ import logging
 from collections.abc import Sequence
 from uuid import UUID
 
-import httpx
 from destiny_sdk.client import KeycloakOAuthMiddleware, OAuthClient, RobotClient
 from destiny_sdk.enhancements import (
     AbstractContentEnhancement,
@@ -27,6 +26,7 @@ from destiny_sdk.robots import (
     RobotEnhancementBatchResult,
 )
 from destiny_sdk.visibility import Visibility
+from httpx2 import AsyncClient, Timeout
 
 from ..db.schemas import ODSRecord, ParsedRecord, ParsedRecordExtra
 from .config import Settings
@@ -95,9 +95,9 @@ class Repository:
             settings.robot_secret.get_secret_value(),
             settings.robot_id,
         )
-        self.robot_client.session.timeout = httpx.Timeout(HTTP_TIMEOUT_SECONDS)
+        self.robot_client.session.timeout = Timeout(HTTP_TIMEOUT_SECONDS)
 
-        self.blob_client = httpx.AsyncClient(timeout=HTTP_TIMEOUT_SECONDS)
+        self.blob_client = AsyncClient(timeout=HTTP_TIMEOUT_SECONDS)
 
         self.repo_client = OAuthClient(
             settings.base_url,

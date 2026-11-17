@@ -5,10 +5,10 @@ services:
     env_file:
       - ${ENV_FILE:-.config/.env.example}
     environment:
-      - POSTGRES_DB: ${DB_NAME:-meta_cache}
-      - POSTGRES_USER: ${DB_USER:-pguser}
-      - POSTGRES_PASSWORD: ${DB_PASSWORD:-password}
-      - PGOPTIONS: "-c client_min_messages=warning"
+      POSTGRES_DB: ${DB_NAME:-meta_cache}
+      POSTGRES_USER: ${DB_USER:-pguser}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-password}
+      PGOPTIONS: "-c client_min_messages=warning"
     ports:
       # Exposed on the host so the robot can be run outside Docker with the default localhost settings
       - "127.0.0.1:${HOST_DB_PORT:-5432}:5432"

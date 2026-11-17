@@ -15,7 +15,7 @@ The sample texts come from tests/samples.py.
 import asyncio
 from uuid import uuid4
 
-import httpx
+import httpx2 as httpx
 import pytest
 from destiny_sdk.references import Reference
 from destiny_sdk.robots import RobotEnhancementBatch
