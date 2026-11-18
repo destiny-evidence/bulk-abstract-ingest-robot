@@ -11,7 +11,6 @@ from destiny_sdk.enhancements import (
     AbstractProcessType,
     BibliographicMetadataEnhancement,
     Enhancement,
-    RawEnhancement,
 )
 from destiny_sdk.identifiers import (
     DOIIdentifier,
@@ -230,29 +229,32 @@ class Repository:
                     process=AbstractProcessType.OTHER,
                 ),
             )
-            raw_enhancement = Enhancement(
-                reference_id=record.destiny_id,
-                source=f"{self.settings.repository_provenance} ({record.source})",
-                visibility=Visibility.RESTRICTED,
-                robot_version=self.settings.robot_version,
-                content=RawEnhancement(
-                    data=record.raw,
-                    source_export_date=record.created_at,  # date of when this was queued; typically close enough to when it was retrieved
-                    description="Unprocessed bibliographic meta-data",
-                    metadata={
-                        "source": record.source,
-                        "format": record.format,
-                        "doi": record.doi,
-                        "openalex_id": record.openalex_id,
-                        "wos_id": record.wos_id,
-                        "scopus_id": record.scopus_id,
-                        "s2_id": record.s2_id,
-                        "pubmed_id": record.pubmed_id,
-                        "dimensions_id": record.dimensions_id,
-                    },
-                ),
-            )
-            file_content += (f"{abstract_enhancement.to_jsonl()}\n{raw_enhancement.to_jsonl()}\n").encode()
+            file_content += (f"{abstract_enhancement.to_jsonl()}\n").encode()
+
+            # TODO: Would be nice to also store all meta-data now that we have it. Needs a separate robot though.
+            # raw_enhancement = Enhancement(
+            #     reference_id=record.destiny_id,
+            #     source=f"{self.settings.repository_provenance} ({record.source})",
+            #     visibility=Visibility.RESTRICTED,
+            #     robot_version=self.settings.robot_version,
+            #     content=RawEnhancement(
+            #         data=record.raw,
+            #         source_export_date=record.created_at,  # date of when this was queued; typically close enough to when it was retrieved
+            #         description="Unprocessed bibliographic meta-data",
+            #         metadata={
+            #             "source": record.source,
+            #             "format": record.format,
+            #             "doi": record.doi,
+            #             "openalex_id": record.openalex_id,
+            #             "wos_id": record.wos_id,
+            #             "scopus_id": record.scopus_id,
+            #             "s2_id": record.s2_id,
+            #             "pubmed_id": record.pubmed_id,
+            #             "dimensions_id": record.dimensions_id,
+            #         },
+            #     ),
+            # )
+            # file_content += (f"{raw_enhancement.to_jsonl()}\n").encode()
 
         return file_content
 
