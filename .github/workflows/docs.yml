@@ -25,6 +25,6 @@ jobs:
       - run: zensical build --config-file docs/zensical.toml
       - uses: actions/upload-pages-artifact@v5
         with:
-          path: site
+          path: ./docs/site
       - uses: actions/deploy-pages@v5
         id: deployment
