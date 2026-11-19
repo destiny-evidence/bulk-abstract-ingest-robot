@@ -1,4 +1,4 @@
-FROM ghcr.io/astral-sh/uv:python3.14-bookworm-slim
+FROM ghcr.io/astral-sh/uv:python3.14-alpine
 
 WORKDIR /app
 
@@ -8,28 +8,33 @@ ENV UV_COMPILE_BYTECODE=1
 # Copy from the cache instead of linking since it's a mounted volume
 ENV UV_LINK_MODE=copy
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl \
-    gcc \
-    libpq-dev \
-    python3-dev \
-    && apt-get purge -y gpg && apt-get autoremove -y \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
+# Fix runtime cache directory for non-root users
+ENV UV_CACHE_DIR=/tmp/uv_cache
 
-# Install the project's dependencies using the lockfile and settings
-RUN --mount=type=cache,target=/root/.cache/uv \
+RUN apk add --no-cache gcc musl-dev postgresql-dev python3-dev libpq
+
+# Pre-create virtualenv and runtime cache folder with appropriate permissions
+RUN mkdir -p /app/.venv /tmp/uv_cache && chmod 777 /tmp/uv_cache
+
+# Install dependencies into /app/.venv
+RUN --mount=type=cache,target=/tmp/uv_cache \
     --mount=type=bind,source=uv.lock,target=uv.lock \
     --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
     uv sync --locked --no-install-project --no-dev
 
-# Then, add the rest of the project source code and install it
-# Installing separately from its dependencies allows optimal layer caching
-COPY . /app
-RUN --mount=type=cache,target=/root/.cache/uv \
+# Copy application source code
+COPY pyproject.toml uv.lock run_robot.py ./
+COPY app/ app/
+COPY .config/ .config/
+
+# Sync project code
+RUN --mount=type=cache,target=/tmp/uv_cache \
     uv sync --locked --no-dev
 
-# Place executables in the environment at the front of the path
+# Ensure non-root user (1000:1000) owns the application and virtual environment
+RUN chown -R 1000:1000 /app
+
+# Place executables in PATH
 ENV PATH="/app/.venv/bin:$PATH"
 
 # Reset the entrypoint, don't invoke `uv`

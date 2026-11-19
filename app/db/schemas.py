@@ -1,0 +1,228 @@
+from __future__ import annotations
+
+import contextlib
+from datetime import datetime
+from enum import Enum
+from typing import Annotated, Any
+from uuid import UUID, uuid6
+
+from pydantic import StringConstraints
+from sqlalchemy import Column, DateTime, ForeignKeyConstraint, text
+from sqlalchemy.dialects.postgresql import JSONB
+from sqlmodel import Field, SQLModel
+from sqlmodel.main import SQLModelConfig  # type: ignore[attr-defined]
+
+
+class Format(str, Enum):
+    SCOPUS_API = "scopus_api"
+    WOS_API = "wos_api"
+    PUBMED_API = "pubmed_api"
+    DIMENSIONS_API = "dimensions_api"
+    OPENALEX_API = "openalex_api"
+    PIK_SOLR = "pik_solr"
+
+
+class Source(str, Enum):
+    OTHER = "OTHER"
+    SCOPUS = "SCOPUS"
+    WOS = "WOS"
+    PUBMED = "PUBMED"
+    DIMENSIONS = "DIMENSIONS"
+    OPENALEX = "OPENALEX"
+
+
+OpenAlexID = Annotated[str, StringConstraints(pattern=r"^W\d+$", to_upper=True)]
+DOI = Annotated[str, StringConstraints(pattern=r"^10\.\d{4,9}/[-._;()/#:A-Za-z0-9]+$", to_lower=True)]
+
+
+class RecordIdentifiers(SQLModel):
+    record_id: UUID = Field(default_factory=uuid6, primary_key=True, description="Internal identifier")
+
+    openalex_id: OpenAlexID | None = Field(default=None, index=True)  # Must be W123456789 format
+    doi: DOI | None = Field(default=None, index=True)  # Expecting no URL prefixes, starting with 10.*
+
+    wos_id: str | None = Field(default=None, index=True)
+    scopus_id: str | None = Field(default=None, index=True)
+    s2_id: str | None = Field(default=None, index=True)
+    pubmed_id: str | None = Field(default=None, index=True)
+    dimensions_id: str | None = Field(default=None, index=True)
+
+
+class _TrackingMixin(SQLModel):
+    """What the robot did about a cached record itself — one set of flags per row of the `records` table."""
+
+    created_at: datetime = Field(
+        default_factory=datetime.now,
+        sa_column=Column(
+            DateTime,
+            server_default=text("CURRENT_TIMESTAMP"),
+            nullable=False,
+        ),
+    )
+
+    has_eligible_abstract: bool | None = Field(default=None, index=True, description="Set to false if record failed eligibility rule (i.e. abstract too short)")
+    evaluated: bool = Field(default=False, index=True, description="Set to true if record was evaluated against ODS")
+    encountered_parsing_error: bool = Field(default=False, index=True, description="Set to true if any of the processing of the raw data failed")
+
+
+class _RawMixin(SQLModel):
+    # Source of this record (to inform the shape of the `raw` field)
+    format: Format | None = None
+    raw: dict[str, Any] = Field(
+        default_factory=dict,
+        sa_column=Column("raw", JSONB, nullable=False),
+    )
+
+
+class _BiblioMixin(SQLModel):
+    title: str | None = None
+    abstract: str | None = None
+    publication_year: int | None = None
+    source: Source = Source.OTHER
+
+
+class _MultiBiblioMixin(SQLModel):
+    titles: list[str] | None = None
+    abstracts: list[str] | None = None
+    publication_years: list[int] | None = None
+
+
+class Record(RecordIdentifiers, _RawMixin, _TrackingMixin, table=True):
+    __tablename__ = "records"
+    model_config = SQLModelConfig(validate_default=True, extra="ignore")
+
+
+class RecordMatch(SQLModel, table=True):
+    """
+    Link between a cached record and one DESTinY reference it matched.
+
+    The relation is many-to-many: the repository can hold several (unmerged) references for the identifier we query,
+    so one record may match several references, and several records may match the same reference.
+    A row is only ever written for a reference that was actually found, so the row itself is the record of that match.
+    """
+
+    __tablename__ = "m2m_record_ods"
+    __table_args__ = (ForeignKeyConstraint(("record_id",), ("records.record_id",), ondelete="CASCADE"),)
+
+    record_id: UUID = Field(primary_key=True, description="Cached record that matched the reference")
+    destiny_id: UUID = Field(primary_key=True, index=True, description="ID in ODS of the matched reference")
+
+    abstract_enhancement_required: bool = Field(default=False, index=True, description="Set to true if ODS requires an abstract enhancement from this match")
+    enhancement_requested: bool = Field(default=False, index=True, description="Set to true if enhancement request was sent to ODS")
+    enhancement_submitted: bool = Field(default=False, index=True, description="Set to true if enhancement was submitted to ODS")
+
+
+class ParsedRecord(RecordIdentifiers, _BiblioMixin, _TrackingMixin):
+    model_config = SQLModelConfig(validate_default=True, extra="ignore")
+
+    destiny_id: UUID | None = Field(default=None, description="ID in ODS if available and matched successfully")
+
+    @classmethod
+    def _parse_record_kwargs(cls, record: Record) -> dict[str, Any]:
+        if record.raw is None or len(record.raw) == 0:
+            raise AssertionError("No raw data in record!")
+
+        if record.format == Format.SCOPUS_API:
+            py: int | None = None
+            py_: str | None = record.raw.get("prism:coverDate") or record.raw.get("prism:coverDisplayDate")
+            if py_ and len(py_) >= 4:  # noqa: PLR2004
+                # An unparseable leading four characters (e.g. "In Press") just leaves the year unknown; the year check is lenient about that
+                with contextlib.suppress(ValueError):
+                    py = int(py_[:4])
+
+            scopus_id = record.raw.get("eid") or record.raw.get("dc:identifier")
+            if scopus_id and record.scopus_id and scopus_id != record.scopus_id:
+                raise AssertionError(f"Scopus IDs do not align: {scopus_id} != {record.scopus_id}!")
+
+            doi = record.raw.get("prism:doi")
+            if doi and record.doi and doi != record.doi:
+                raise AssertionError(f"DOIs do not align: {doi} != {record.doi}!")
+
+            return {
+                "title": record.raw.get("dc:title"),
+                "abstract": record.raw.get("dc:description"),
+                "publication_year": py,
+                "scopus_id": record.scopus_id or scopus_id,
+                "doi": record.doi or doi,
+                "source": Source.SCOPUS,
+                **record.model_dump(
+                    exclude_defaults=True,
+                    # `format` and `raw` are set by `ParsedRecordExtra.from_record` separately
+                    exclude={"scopus_id", "doi", "format", "raw"},
+                ),
+            }
+
+        raise NotImplementedError(f"No parser for format {record.format}")
+
+    @classmethod
+    def from_record(cls, record: Record, destiny_id: UUID | None = None) -> ParsedRecord:
+        """Parse a queued record, optionally for one specific DESTinY reference it was matched to."""
+        kwargs = cls._parse_record_kwargs(record)
+        return cls(destiny_id=destiny_id, **kwargs)
+
+
+class ParsedRecordExtra(ParsedRecord, _RawMixin):
+    """Model containing raw source data and parsed values in a single entity."""
+
+    model_config = SQLModelConfig(validate_default=True, extra="ignore")
+
+    @classmethod
+    def from_record(cls, record: Record, destiny_id: UUID | None = None) -> ParsedRecordExtra:
+        """Parse a queued record (with its raw payload), optionally for one specific DESTinY reference it was matched to."""
+        kwargs = cls._parse_record_kwargs(record)
+        return cls(
+            destiny_id=destiny_id,
+            **kwargs,
+            format=record.format,
+            raw=record.raw,
+        )
+
+
+class ODSRecord(RecordIdentifiers, _MultiBiblioMixin, _TrackingMixin):
+    model_config = SQLModelConfig(validate_default=True, extra="ignore")
+
+    destiny_id: UUID | None = Field(default=None, description="ID in ODS if available and matched successfully")
+
+
+class SearchIngest(SQLModel, table=True):
+    __tablename__ = "search_ingest"
+    ingest_id: UUID = Field(default_factory=uuid6, primary_key=True)
+    azure_link: str = Field(
+        nullable=False,
+        description="Link with auth key to result file in azure blob storage",
+    )
+    is_queueing: bool = Field(
+        default=False,
+        nullable=False,
+        description="Status on transfer to ingestion queue (started transfer file to queue)",
+    )
+    is_queued: bool = Field(
+        default=False,
+        nullable=False,
+        description="Status on transfer to ingestion queue (completed transfer file to queue)",
+    )
+    checkpoint_bytes: int | None = Field(
+        default=None,
+        nullable=True,
+        description="Offset in bytes from the latest commit to the queue (restart from here on failure)",
+    )
+    checkpoint_rows: int | None = Field(
+        default=None,
+        nullable=True,
+        description="Number of lines read from the latest commit to the queue",
+    )
+
+
+__all__ = [
+    "DOI",
+    "Format",
+    "ODSRecord",
+    "OpenAlexID",
+    "ParsedRecord",
+    "ParsedRecordExtra",
+    "Record",
+    "RecordIdentifiers",
+    "RecordMatch",
+    "SearchIngest",
+    "Source",
+]
