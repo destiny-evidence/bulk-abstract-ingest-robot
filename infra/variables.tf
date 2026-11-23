@@ -5,6 +5,8 @@
 
 variable "app_name" {
   description = "Name used to create Azure resources and as OTEL service name. The robot's own `robot_name` setting is derived from pyproject.toml, so it does not need to be set here."
+  default     = "abstract-transfer-robot"
+  type        = string
 }
 
 variable "robot_id" {
