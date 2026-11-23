@@ -87,14 +87,6 @@ module "container_app" {
       secret_name = "db-password"
     },
     {
-      name  = "API_WRAPPER_ENDPOINT"
-      value = var.api_wrapper_endpoint
-    },
-    {
-      name        = "API_WRAPPER_API_KEY"
-      secret_name = "api-wrapper-api-key"
-    },
-    {
       name  = "OTEL_SERVICE_NAME",
       value = "${var.app_name}-${var.environment}"
     },
@@ -140,10 +132,6 @@ module "container_app" {
     {
       name  = "db-password",
       value = var.db_password
-    },
-    {
-      name  = "api-wrapper-api-key",
-      value = var.api_wrapper_api_key
     },
     {
       name  = "honeycomb-api-header",

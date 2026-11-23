@@ -5,11 +5,11 @@ import tomllib
 from enum import StrEnum
 from functools import lru_cache
 from pathlib import Path
-from typing import Annotated, Any
+from typing import Any
 from uuid import UUID
 
 from destiny_sdk.identifiers import ExternalIdentifierType
-from pydantic import AfterValidator, Field, HttpUrl, SecretStr
+from pydantic import Field, HttpUrl, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -107,6 +107,10 @@ class Settings(BaseSettings):
         default=3600,  # defaults to checking once per hour
         description="How long to sleep between checking for new files to transfer to ingest queue (seconds)",
     )
+    queue_batch_size: int = Field(
+        default=1000,
+        description="The number of references to queue per batch",
+    )
     request_batch_size: int = Field(
         default=10,
         description="The number of references to include per enhancement batch",
@@ -194,18 +198,6 @@ class Settings(BaseSettings):
         description="How do we want to call this abstract enhancement source",
     )
 
-    api_wrapper_endpoint: Annotated[str, AfterValidator(lambda v: v.rstrip("/"))] = Field(
-        default="http://localhost:8000/api",
-        description="Public REST API of the academic-api tool without trailing slash",
-    )
-    api_wrapper_api_key: str = Field(
-        default="very-secret",
-        description="Authentication key for the academic-api tool API",
-    )
-    api_wrapper_checkpoint_interval: int = Field(
-        default=1000,
-        description="Number of rows to process before submitting checkpoint to academic-api tool API.",
-    )
     transfer_locks_path: Path = Field(
         default=Path(".locks"),
         description="Directory where to host locks so multiple transfer processes don't work on the same file.",

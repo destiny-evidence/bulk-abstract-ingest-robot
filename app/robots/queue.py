@@ -71,7 +71,7 @@ class IngestionQueueRunner(Runner):
 
             async for batch in async_batched(
                 _read_from_blob_storage(sas_url=request.azure_link, byte_offset=request.checkpoint_bytes or 0),
-                batch_size=self.settings.api_wrapper_checkpoint_interval,
+                batch_size=self.settings.queue_batch_size,
             ):
                 for line, offset in batch:
                     # Offset advances for every line, broken ones included: skipping is deterministic, so a crashed run

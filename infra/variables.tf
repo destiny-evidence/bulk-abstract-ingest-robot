@@ -68,17 +68,6 @@ variable "db_password" {
   sensitive   = true
 }
 
-# --- Academic API importer tool (source of files to transfer) ---
-
-variable "api_wrapper_endpoint" {
-  description = "Public REST API of the academic-api tool, without trailing slash (env: API_WRAPPER_ENDPOINT)."
-}
-
-variable "api_wrapper_api_key" {
-  description = "Authentication key for the academic-api tool API (env: API_WRAPPER_API_KEY)."
-  sensitive   = true
-}
-
 # --- Container image registry ---
 
 variable "container_registry_name" {

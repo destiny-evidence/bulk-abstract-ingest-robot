@@ -35,15 +35,16 @@ All configuration is read from environment variables via `pydantic-settings` (`a
 
 ## Runner pacing & batching
 
-| Variable                        | Default | Description                                                                |
-| ------------------------------- | ------- | -------------------------------------------------------------------------- |
-| `MATCH_INTERVAL_SECONDS`        | `30`    | Sleep between match-loop iterations.                                       |
-| `ENHANCE_INTERVAL_SECONDS`      | `30`    | Sleep between enhance-loop iterations.                                     |
-| `QUEUE_INTERVAL_SECONDS`        | `3600`  | Sleep between checks for new transfer requests.                            |
-| `REQUEST_BATCH_SIZE`            | `10`    | Records evaluated against the repository per match-loop iteration.         |
-| `FULFIL_BATCH_SIZE`             | `10`    | References requested per enhancement batch poll.                           |
-| `REPOSITORY_LOOKUP_BATCH_SIZE`  | `100`   | Max identifiers per repository lookup call (1–100; IDs travel in the URL). |
-| `REPOSITORY_LOOKUP_CONCURRENCY` | `1`     | Max concurrent lookup requests.                                            |
+| Variable                        | Default | Description                                                                                |
+| ------------------------------- | ------- | ------------------------------------------------------------------------------------------ |
+| `MATCH_INTERVAL_SECONDS`        | `30`    | Sleep between match-loop iterations.                                                       |
+| `ENHANCE_INTERVAL_SECONDS`      | `30`    | Sleep between enhance-loop iterations.                                                     |
+| `QUEUE_INTERVAL_SECONDS`        | `3600`  | Sleep between checks for new transfer requests.                                            |
+| `QUEUE_BATCH_SIZE`              | `1000`  | Rows transferred per batch while queueing a file; a checkpoint is logged after each batch. |
+| `REQUEST_BATCH_SIZE`            | `10`    | Records evaluated against the repository per match-loop iteration.                         |
+| `FULFIL_BATCH_SIZE`             | `10`    | References requested per enhancement batch poll.                                           |
+| `REPOSITORY_LOOKUP_BATCH_SIZE`  | `100`   | Max identifiers per repository lookup call (1–100; IDs travel in the URL).                 |
+| `REPOSITORY_LOOKUP_CONCURRENCY` | `1`     | Max concurrent lookup requests.                                                            |
 
 ## Enhancement rules
 
@@ -61,12 +62,9 @@ These decide which records the match runner even considers, and how it judges th
 
 ## Transfer (queue runner)
 
-| Variable                          | Default                     | Description                                                                                                         |
-| --------------------------------- | --------------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| `API_WRAPPER_ENDPOINT`            | `http://localhost:8000/api` | Public REST API of the Academic API Importer tool (used for progress reporting).                                    |
-| `API_WRAPPER_API_KEY`             | `very-secret`               | Auth key for that API.                                                                                              |
-| `API_WRAPPER_CHECKPOINT_INTERVAL` | `1000`                      | Rows per commit/checkpoint while transferring a file.                                                               |
-| `TRANSFER_LOCKS_PATH`             | `.locks`                    | Directory holding per-ingest file locks. On a shared host this must be a filesystem all transfer processes can see. |
+| Variable              | Default  | Description                                                                                                         |
+| --------------------- | -------- | ------------------------------------------------------------------------------------------------------------------- |
+| `TRANSFER_LOCKS_PATH` | `.locks` | Directory holding per-ingest file locks. On a shared host this must be a filesystem all transfer processes can see. |
 
 ## Logging
 

@@ -129,7 +129,7 @@ class TestBlobReader:
 class TestTransfer:
     def test_transfers_all_rows_and_walks_the_states_from_queueing_to_queued(self, queue_runner, queue_blob, db, queue_ingest, queue_tracker, settings):
         queue_blob.data = stub_jsonl(count=9)
-        settings.api_wrapper_checkpoint_interval = 3
+        settings.queue_batch_size = 3
 
         asyncio.run(queue_runner._loop_task())
 
@@ -155,7 +155,7 @@ class TestTransfer:
     def test_transfers_a_real_scopus_export_and_logs_checkpoints_by_bytes(self, queue_runner, queue_blob, db, queue_ingest, queue_tracker, settings):
         queue_blob.data = scopus_sample_jsonl(20)
         ends = list(accumulate(len(line) + 1 for line in scopus_sample_lines()))
-        settings.api_wrapper_checkpoint_interval = 10
+        settings.queue_batch_size = 10
 
         asyncio.run(queue_runner._loop_task())
 
@@ -170,7 +170,7 @@ class TestTransfer:
         queue_ingest.checkpoint_bytes = 3 * STUB_LINE_BYTES
         queue_ingest.checkpoint_rows = 100
         queue_blob.data = stub_jsonl(count=9)
-        settings.api_wrapper_checkpoint_interval = 3
+        settings.queue_batch_size = 3
 
         asyncio.run(queue_runner._loop_task())
 
@@ -204,7 +204,7 @@ class TestTransfer:
 
     def test_empty_blob_is_queued_without_checkpoints(self, queue_runner, queue_blob, db, queue_tracker, settings):
         queue_blob.empty_blocks = True
-        settings.api_wrapper_checkpoint_interval = 3
+        settings.queue_batch_size = 3
 
         asyncio.run(queue_runner._loop_task())
 
@@ -218,7 +218,7 @@ class TestFormatProblems:
         # lines 1-2 are fine, line 3 is an HTML error page someone uploaded instead of the export, lines 4-6 are fine
         poison = b"<html><body>403 Forbidden</body></html>\n"
         queue_blob.data = stub_jsonl(count=2) + poison + stub_jsonl(first=4, count=3)
-        settings.api_wrapper_checkpoint_interval = 2
+        settings.queue_batch_size = 2
 
         asyncio.run(queue_runner._loop_task())  # the poison line must not stop (or crash-loop) the transfer
 
@@ -238,7 +238,7 @@ class TestFormatProblems:
     def test_a_file_of_only_poison_is_queued_empty(self, queue_runner, queue_blob, db, queue_ingest, settings):
         # an HTML error page for the whole "export": skipped in full, the request completes instead of livelocking on it
         queue_blob.data = b"<html><body>403 Forbidden</body></html>\n<html><body>gone</body></html>\n"
-        settings.api_wrapper_checkpoint_interval = 1
+        settings.queue_batch_size = 1
 
         asyncio.run(queue_runner._loop_task())
 
@@ -251,7 +251,7 @@ class TestFormatProblems:
         # stamped with the hard-coded `Format.SCOPUS_API` (the TO-DO in _loop_task) — recognising formats is the parser's job.
         crossref = {"DOI": "10.1234/abcd.5678", "type": "posted-content", "message": {"abstract": "A Crossref-shaped payload, not Scopus."}}
         queue_blob.data = stub_line(1) + (json.dumps(crossref) + "\n").encode() + stub_line(2)
-        settings.api_wrapper_checkpoint_interval = 3
+        settings.queue_batch_size = 3
 
         asyncio.run(queue_runner._loop_task())
 
@@ -262,7 +262,7 @@ class TestFormatProblems:
     def test_json_that_is_not_a_line_of_objects_is_rejected(self, queue_runner, queue_blob, db, queue_ingest, settings):
         # the classic upload mistake: a raw API response (one JSON array) instead of JSON lines
         queue_blob.data = (json.dumps([stub(1), stub(2)]) + "\n").encode()
-        settings.api_wrapper_checkpoint_interval = 1
+        settings.queue_batch_size = 1
 
         asyncio.run(queue_runner._loop_task())
 
@@ -276,7 +276,7 @@ class TestProcessDiesMidFlight:
         queue_blob.data = stub_jsonl(count=6)
         queue_blob.block_size = 2 * STUB_LINE_BYTES
         queue_blob.fail_after_blocks = 1
-        settings.api_wrapper_checkpoint_interval = 2
+        settings.queue_batch_size = 2
 
         with pytest.raises(ServiceResponseError):
             asyncio.run(queue_runner._loop_task())
@@ -288,7 +288,7 @@ class TestProcessDiesMidFlight:
 
     def test_database_death_mid_commit_rolls_back_to_the_last_checkpoint(self, queue_runner, queue_blob, db, queue_ingest, queue_tracker, settings):
         queue_blob.data = stub_jsonl(count=6)
-        settings.api_wrapper_checkpoint_interval = 2
+        settings.queue_batch_size = 2
         db.crash_on_commit = 2  # the second batch's commit dies, taking its rows and its flushed checkpoint write with it
 
         with pytest.raises(OperationalError):
@@ -310,7 +310,7 @@ class TestProcessDiesMidFlight:
         settings,
     ):
         queue_blob.data = stub_jsonl(count=6)
-        settings.api_wrapper_checkpoint_interval = 3
+        settings.queue_batch_size = 3
         db.crash_on_commit = 2
 
         with pytest.raises(OperationalError):
@@ -337,7 +337,7 @@ class TestProcessDiesMidFlight:
 
     def test_trailing_partial_batch_is_committed_and_checkpointed(self, queue_runner, queue_blob, db, queue_ingest, queue_tracker, settings):
         queue_blob.data = stub_jsonl(count=5)  # lines 1-4 fall on checkpoint intervals, line 5 is the trailing partial batch
-        settings.api_wrapper_checkpoint_interval = 2
+        settings.queue_batch_size = 2
 
         asyncio.run(queue_runner._loop_task())
 
