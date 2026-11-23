@@ -31,7 +31,7 @@ flowchart TD
     D -- "no" --> REJ4(["reject<br/><i>different paper despite<br/>shared identifier</i>"])
     D -- "yes / unknown" --> E{"repository has a trustworthy<br/>abstract (MIN_ABSTRACT_LENGTH<br/>&lt; length &lt; MAX_ABSTRACT_LENGTH)?"}
     E -- "no" --> OK(["accept —<br/>request enhancement"])
-    E -- yes --> F{"USE_SLOP_FOR_ENHANCEMENT_CHECK<br/>enabled and distance &gt;<br/>MAX_ABSTRACT_SLOP?"}
+    E -- yes --> F{"REPLACE_ABSTRACTS_ON_MISMATCH<br/>enabled and distance &gt;<br/>MAX_ABSTRACT_SLOP?"}
     F -- yes --> OK
     F -- "no" --> REJ5(["reject<br/><i>we already have a<br/>good enough abstract</i>"])
 
@@ -48,7 +48,7 @@ flowchart TD
 - Titles and abstracts are **normalised before comparison**: lowercased, all non-`a-z` characters removed. This catches formatting/encoding noise cheaply while keeping the logic honest about being a heuristic.
 - Year and title checks are skipped whenever either side has no information — absence of data is never treated as a mismatch.
 - Abstract **length is used as a trustworthiness signal on both sides**: only abstracts between `MIN_ABSTRACT_LENGTH` and `MAX_ABSTRACT_LENGTH` count. An over-long repository abstract is treated as broken garbage and does not block an enhancement — and an over-long cached abstract is never submitted.
-- **How a trustworthy repository abstract is judged depends on `USE_SLOP_FOR_ENHANCEMENT_CHECK`:**
+- **How a trustworthy repository abstract is judged depends on `REPLACE_ABSTRACTS_ON_MISMATCH`:**
   - _Off (default):_ mere presence of a trustworthy abstract is enough — "someone already wrote something of plausible quality here, leave it alone". No similarity is computed.
   - _On:_ the abstracts are compared, and only a _sufficiently similar_ repository abstract (distance ≤ `MAX_ABSTRACT_SLOP`) suppresses the enhancement.
 - The similarity measure (used for titles, and for abstracts in slop mode) is a `difflib.ndiff`-based per-character distance over the normalised strings, not a semantic check. Tuning the slop thresholds quickly becomes a slippery slope, so the thresholds are intentionally blunt (see `MAX_TITLE_SLOP` / `MAX_ABSTRACT_SLOP` in [Configuration](configuration.md)).
@@ -75,7 +75,7 @@ The rules were refined while planning the API-wrapper ingestion ([issue #7](http
 - **Match by identifier only.** Whichever identifier `MATCH_IDENTIFIER` picks, it is not perfectly reliable — production data shows roughly 1 in 500 DOIs held by two unmerged references. The year + title plausibility checks exist precisely so that a wrong identifier match fails the rules instead of getting a wrong abstract. DOI is the default for a mundane reason: it is the identifier the transfer parsers actually recover from raw payloads at the moment, whereas the OpenAlex ID column stays empty (both keys run through the same code, so `open_alex` starts working as soon as that column is filled).
 - **Title similarity was added** compared to the first version of the robot (which only checked year tolerance and abstract mismatch) to reduce false-positive matches.
 - **"Different enough" replaces "always submit".** Rather than offering any abstract we have, we only submit when the repository lacks a trustworthy abstract for the reference — and, in the opt-in similarity mode, lacks a _similar_ one. We deliberately do _not_ try to judge which abstract "looks better" (e.g. always preferring the longer one) — that decision belongs to a future best-abstract mechanism.
-- **Presence-only checking is the default.** Comparing abstract text cheaply conflates "different wording of the same abstract" with "a genuinely better abstract", and any submission risks burying a good existing one. So the default mode submits only where no plausible abstract exists at all; `USE_SLOP_FOR_ENHANCEMENT_CHECK` restores the old distance-based comparison for deployments that want to push replacements.
+- **Presence-only checking is the default.** Comparing abstract text cheaply conflates "different wording of the same abstract" with "a genuinely better abstract", and any submission risks burying a good existing one. So the default mode submits only where no plausible abstract exists at all; `REPLACE_ABSTRACTS_ON_MISMATCH` restores the old distance-based comparison for deployments that want to push replacements.
 - **Length bounds abstract trustworthiness in both directions.** Very short payloads carry no information, and absurdly long ones are usually parsing garbage (affiliation dumps, whole first pages) — so abstracts outside `MIN_ABSTRACT_LENGTH` … `MAX_ABSTRACT_LENGTH` neither block enhancements nor get submitted.
 - **Double submissions are acceptable.** The repository handles duplicate enhancements; the robot does not spend effort preventing them.
 - **No new references.** The robot only enhances what already exists in the index.

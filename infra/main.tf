@@ -31,15 +31,15 @@ module "container_app" {
   resource_group_name             = azurerm_resource_group.this.name
   region                          = azurerm_resource_group.this.location
 
-  # We're the api url for the destiny repository here, which the robot will use to authenticate against.
-  # The necessaary `AZURE_CLIENT_ID` environment variable is set by the container app module.
+  # Environment variables are read by the robot's pydantic settings (app/util/config.py).
+  # The necessary `AZURE_CLIENT_ID` environment variable is set by the container app module.
   env_vars = [
     {
       name  = "ENV"
       value = var.environment
     },
     {
-      name  = "DESTINY_REPOSITORY_URL"
+      name  = "BASE_URL"
       value = var.destiny_repository_url
     },
     {
@@ -51,36 +51,48 @@ module "container_app" {
       secret_name = "robot-secret"
     },
     {
-      name  = "VOTER_MODEL_URL"
-      value = var.voter_model_url
+      name  = "KEYCLOAK_ID"
+      value = var.keycloak_id
     },
     {
-      name        = "VOTER_MODEL_API_KEY"
-      secret_name = "voter-model-api-key"
+      name  = "KEYCLOAK_URL"
+      value = var.keycloak_url
     },
     {
-      name  = "VOTER_MODEL_DEPLOYMENT"
-      value = var.voter_model_deployment
+      name  = "KEYCLOAK_REALM"
+      value = var.keycloak_realm
     },
     {
-      name  = "VOTER_MODEL_INCLUSION_SCORE_THRESHOLD",
-      value = var.voter_model_inclusion_score_threshold
+      name        = "KEYCLOAK_SECRET"
+      secret_name = "keycloak-secret"
     },
     {
-      name  = "VOTER_MODEL_BATCH_SIZE",
-      value = var.voter_model_batch_size
+      name  = "DB_HOST"
+      value = var.db_host
     },
     {
-      name  = "VOTER_MODEL_CONCURRENCY_LIMIT",
-      value = var.voter_model_concurrency_limit
+      name  = "DB_PORT"
+      value = tostring(var.db_port)
     },
     {
-      name  = "ACTIVE_POLL_INTERVAL_SECONDS",
-      value = var.active_poll_interval_seconds
+      name  = "DB_NAME"
+      value = var.db_name
     },
     {
-      name  = "IDLE_POLL_INTERVAL_SECONDS",
-      value = var.idle_poll_interval_seconds
+      name  = "DB_USER"
+      value = var.db_user
+    },
+    {
+      name        = "DB_PASSWORD"
+      secret_name = "db-password"
+    },
+    {
+      name  = "API_WRAPPER_ENDPOINT"
+      value = var.api_wrapper_endpoint
+    },
+    {
+      name        = "API_WRAPPER_API_KEY"
+      secret_name = "api-wrapper-api-key"
     },
     {
       name  = "OTEL_SERVICE_NAME",
@@ -122,8 +134,16 @@ module "container_app" {
       value = var.robot_secret
     },
     {
-      name  = "voter-model-api-key",
-      value = var.voter_model_api_key
+      name  = "keycloak-secret",
+      value = var.keycloak_secret
+    },
+    {
+      name  = "db-password",
+      value = var.db_password
+    },
+    {
+      name  = "api-wrapper-api-key",
+      value = var.api_wrapper_api_key
     },
     {
       name  = "honeycomb-api-header",
